@@ -610,7 +610,7 @@ export default function AdminAffiliationsPage() {
                                         onClick={() => setIdCardBackgroundOpen(true)}
                                         className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:opacity-60"
                                     >
-                                        Upload / Crop
+                                        Upload / Crop / Remove
                                     </button>
                                 </div>
                                 <div>
