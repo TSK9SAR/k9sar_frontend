@@ -20,6 +20,8 @@
 - **Frontend repository:** https://github.com/Roamer105/k9sar_frontend
 - **Backend repository:** https://github.com/Roamer105/k9sar_backend
 - **Primary branch:** main
+- **Organization:** TSK9SAR
+- **Both repositories:** https://github.com/TSK9SAR
 - **Deployment source of truth:** GitHub repositories
 
 ### Hosting / Infrastructure
