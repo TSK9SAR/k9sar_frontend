@@ -65,7 +65,7 @@ function deleteUrl(preview: Preview) {
             return `/admin/users/${preview.user_id}/hard-delete-tree`;
 
         case "topic_survey_tree":
-            return `/admin/cleanup/topic-tree/${preview.topic_id}/hard-delete-tree`;
+             return `/admin/topic-tree/${preview.topic_id}/hard-delete-tree`;
 
         case "certificate":
             return `/admin/certificates/${preview.certificate_id}/hard-delete`;
