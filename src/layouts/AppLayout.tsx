@@ -17,7 +17,7 @@ function linkClass(isActive: boolean) {
 }
 
 const PUBLIC_PATHS = [
-  "/", // portal
+  "/",
   "/directory",
   "/standards",
   "/contact",
@@ -25,6 +25,7 @@ const PUBLIC_PATHS = [
   "/accept-invite",
   "/forgot-login",
   "/reset-password",
+  "/forums/email-entry",
 ];
 
 function isPublicPath(pathname: string) {
@@ -324,14 +325,18 @@ export default function AppLayout() {
               <button
                 type="button"
                 onClick={() => {
-                  setMobileNavOpen((v) => {
-                    if (!v) {
-                      window.scrollTo({
-                        top: 0,
-                        behavior: "smooth",
-                      });
-                    }
-                    return !v;
+                  if (mobileNavOpen) {
+                    setMobileNavOpen(false);
+                    return;
+                  }
+
+                  setMobileNavOpen(true);
+
+                  requestAnimationFrame(() => {
+                    window.scrollTo({
+                      top: 0,
+                      behavior: "auto",
+                    });
                   });
                 }}
                 className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800"

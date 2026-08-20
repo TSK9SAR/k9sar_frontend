@@ -43,6 +43,7 @@ const LoginActivityPage = React.lazy(() => import("./pages/admin/LoginActivityPa
 const ForumCategoryPage = React.lazy(() => import("./pages/ForumCategoryPage.jsx"));
 const ForumHomePage = React.lazy(() => import("./pages/ForumHomePage.jsx"));
 const ForumTopicPage = React.lazy(() => import("./pages/ForumTopicPage.jsx"));
+const ForumEmailEntryPage = React.lazy(() => import("./pages/ForumEmailEntryPage.jsx"));
 const ForumSettingsPage = React.lazy(() => import("./pages/ForumSettingsPage.jsx"));
 const EmailAudiencePage = React.lazy(() => import("./pages/admin/EmailAudiencePage.jsx"))
 const AdminHelpPage = React.lazy(() => import("./pages/admin/AdminHelpPage.jsx"));
@@ -83,6 +84,7 @@ function AppRoutes() {
           <Route path="/twofa" element={<TwoFAPage />} />
           <Route path="/twofa-setup" element={<TwoFASetupPage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/forums/email-entry/:token" element={<ForumEmailEntryPage />} />
 
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
@@ -116,7 +118,7 @@ function AppRoutes() {
             <Route path="/admin/help" element={<AdminHelpPage />} />
             <Route path="/admin/forum-surveys" element={<AdminForumSurveyPage />} />
             <Route path="/admin/cleanup-audit" element={<AdminCleanupAuditPage />} />
-            
+
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import {
+  Link,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import ForumComposer from "../components/forums/ForumComposer";
 import ForumMarkdown from "../components/forums/ForumMarkdown";
 import { apiJson } from "../lib/api";
@@ -7,7 +11,11 @@ import PageContainer from "../components/PageContainer";
 
 export default function ForumTopicPage() {
   const { topicId } = useParams();
+  const [searchParams] = useSearchParams();
+  const replySectionRef = useRef(null);
 
+  const replyRequested =
+    searchParams.get("reply") === "1";
   const [topic, setTopic] = useState(null);
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(true);
@@ -232,6 +240,33 @@ export default function ForumTopicPage() {
       setBallotLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (
+      !replyRequested ||
+      !topic ||
+      !me ||
+      topic.is_locked
+    ) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const section = replySectionRef.current;
+
+      if (!section) return;
+
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      const textarea =
+        section.querySelector("textarea");
+
+      textarea?.focus();
+    });
+  }, [replyRequested, topic, me]);
 
   useEffect(() => {
     loadTopic();
@@ -715,7 +750,12 @@ export default function ForumTopicPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <h1 className="break-words text-2xl font-semibold text-slate-100">
-                  {topic.title}
+                  <div>
+                    <span>{topic.title}</span>
+                    <span className="ml-2 text-xs text-slate-500">
+                      #{topic.topic_id}
+                    </span>
+                  </div>
                 </h1>
 
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400">
@@ -1186,7 +1226,9 @@ export default function ForumTopicPage() {
           This topic is locked, so new replies are closed.
         </div>
       ) : topic && me ? (
-        <div className="rounded-xl border border-slate-700 bg-slate-800 p-5">
+        <div
+          ref={replySectionRef}
+          className="rounded-xl border border-slate-700 bg-slate-800 p-5">
           <ForumComposer
             value={reply}
             onChange={setReply}

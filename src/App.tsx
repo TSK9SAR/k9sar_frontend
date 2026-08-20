@@ -10,17 +10,6 @@ function getToken(): string | null {
   return localStorage.getItem("token");
 }
 
-// async function handleLogout() {
-//   try {
-//     await apiFetch("/auth/logout", { method: "POST" });
-//   } catch (err) {
-//     console.error("Logout request failed", err);
-//   } finally {
-//     localStorage.removeItem("access_token");
-//     sessionStorage.removeItem("access_token");
-//     window.location.href = "/login";
-//   }
-// }
 
 import { PropsWithChildren } from "react";
 

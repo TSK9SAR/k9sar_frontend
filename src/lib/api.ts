@@ -68,12 +68,15 @@ export async function apiFetch(
   } = options;
 
   const token = localStorage.getItem("token");
-
   if (authRequired && !token) {
     clearAuthState();
 
     if (redirectOnAuthFailure) {
-      window.location.href = "/login";
+      const returnPath =
+        window.location.pathname + window.location.search;
+
+      window.location.href =
+        `/login?next=${encodeURIComponent(returnPath)}`;
     }
 
     throw new Error("Authentication required");
@@ -94,17 +97,21 @@ export async function apiFetch(
     headers,
   });
 
-  if (response.status === 401) {
-    const data = await readJsonSafe(response);
+if (response.status === 401) {
+  const data = await readJsonSafe(response);
 
-    clearAuthState();
+  clearAuthState();
 
-    if (authRequired && redirectOnAuthFailure) {
-      window.location.href = "/login";
-    }
+  if (authRequired && redirectOnAuthFailure) {
+    const returnPath =
+      window.location.pathname + window.location.search;
 
-    throw new ApiError("Authentication expired", response, data);
+    window.location.href =
+      `/login?next=${encodeURIComponent(returnPath)}`;
   }
+
+  throw new ApiError("Authentication expired", response, data);
+}
 
   if (response.status === 403) {
     const data = await readJsonSafe(response);

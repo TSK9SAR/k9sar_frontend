@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { apiFetch } from "../lib/api";
 
 export default function TwoFAPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
+  const next =
+    new URLSearchParams(location.search).get("next") ||
+    sessionStorage.getItem("post_login_path") ||
+    "/dashboard";
   const [code, setCode] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +40,10 @@ export default function TwoFAPage() {
 
   useEffect(() => {
     if (!twofaToken) {
-      navigate("/login", { replace: true });
+      navigate(
+        `/login?next=${encodeURIComponent(next)}`,
+        { replace: true }
+      );
       return;
     }
 
@@ -78,9 +89,14 @@ export default function TwoFAPage() {
 
   function finishLogin(accessToken) {
     localStorage.setItem("token", accessToken);
+
     sessionStorage.removeItem("twofa_token");
     sessionStorage.removeItem("twofa_username");
-    navigate("/dashboard", { replace: true });
+    sessionStorage.removeItem("post_login_path");
+
+    navigate(next, {
+      replace: true,
+    });
   }
 
   async function handleDisableMfa() {
@@ -173,7 +189,15 @@ export default function TwoFAPage() {
 
       setShowDisableMfaModal(false);
       setDisablePassword("");
-      navigate("/dashboard", { replace: true });
+
+      setShowDisableMfaModal(false);
+      setDisablePassword("");
+
+      sessionStorage.removeItem("post_login_path");
+
+      navigate(next, {
+        replace: true,
+      });
     } catch (e) {
       setDisableError(e?.message ?? "Failed to disable MFA");
     } finally {
@@ -445,7 +469,11 @@ export default function TwoFAPage() {
         onClick={() => {
           sessionStorage.removeItem("twofa_token");
           sessionStorage.removeItem("twofa_username");
-          navigate("/dashboard", { replace: true });
+          sessionStorage.removeItem("post_login_path");
+
+          navigate(next, {
+            replace: true,
+          });
         }}
         style={{
           marginTop: 50,
@@ -522,17 +550,16 @@ export default function TwoFAPage() {
                   setDisablePassword("");
                 }}
                 className="
-      px-3 py-1.5 text-sm rounded-lg
-      border border-slate-600
-      bg-slate-700 text-slate-200
-      hover:bg-slate-600
-      focus:outline-none focus:ring-2 focus:ring-slate-400/50
-      transition
-    "
+    px-3 py-1.5 text-sm rounded-lg
+    border border-slate-600
+    bg-slate-700 text-slate-200
+    hover:bg-slate-600
+    focus:outline-none focus:ring-2 focus:ring-slate-400/50
+    transition
+  "
               >
                 Cancel
               </button>
-
               <button
                 type="button"
                 onClick={confirmDisableMfa}
@@ -553,6 +580,6 @@ export default function TwoFAPage() {
         </div>
       )
       }
-    </div>
+    </div >
   );
 }

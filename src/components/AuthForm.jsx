@@ -28,7 +28,11 @@ function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const params = new URLSearchParams(window.location.search);
-  const next = params.get("next") || "/dashboard";
+
+  const next =
+    sessionStorage.getItem("post_login_path") ||
+    params.get("next") ||
+    "/dashboard";
   const passwordRef = React.useRef(null);
 
   useEffect(() => {
@@ -68,25 +72,6 @@ function AuthForm() {
         throw new Error(`Login failed (HTTP ${resp.status}): ${text}`);
       }
 
-      // ✅ 2FA required (check FIRST because backend also returns access_token)
-      // if (data?.requires_2fa) {
-      //   // store normal access token so they can still use the app (issuing blocked)
-      //   if (data?.access_token) setAuthToken(data.access_token);
-
-      //   if (data?.twofa_mode === "verify" && data?.twofa_token) {
-      //     sessionStorage.setItem("twofa_token", data.twofa_token);
-      //     sessionStorage.setItem("twofa_ident", username);
-      //     window.dispatchEvent(new Event("auth:changed"));
-      //     navigate("/twofa", { replace: true });
-      //     return;
-      //   }
-
-      //   if (data?.twofa_mode === "enroll") {
-      //     // send them to an enroll page (or reuse /twofa with an enroll mode)
-      //     navigate("/twofa-setup", { replace: true });
-      //     return;
-      //   }
-      // }
 
       if (data.requires_2fa && data.twofa_token) {
         if (data.access_token) {
@@ -109,8 +94,11 @@ function AuthForm() {
 
       if (data.access_token) {
         setAuthToken(data.access_token);
+
         sessionStorage.removeItem("twofa_token");
         sessionStorage.removeItem("mfa_methods");
+        sessionStorage.removeItem("post_login_path");
+
         navigate(next, { replace: true });
         return;
       }
