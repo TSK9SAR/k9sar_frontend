@@ -13,15 +13,19 @@ export default function ForumTopicPage() {
   const { topicId } = useParams();
   const [searchParams] = useSearchParams();
   const replySectionRef = useRef(null);
+  const replyDraftKey = `forum-reply-${topicId}`;
+
+  const [reply, setReply] = useState(() => {
+    return sessionStorage.getItem(replyDraftKey) || "";
+  });
 
   const replyRequested =
     searchParams.get("reply") === "1";
   const [topic, setTopic] = useState(null);
-  const [reply, setReply] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [savingPostId, setSavingPostId] = useState(null);
-  const [error, setError] = useState("");
 
   const [editingPostId, setEditingPostId] = useState(null);
   const [editBody, setEditBody] = useState("");
@@ -43,6 +47,9 @@ export default function ForumTopicPage() {
     { label: "Yes", allows_free_text: false, free_text_label: "" },
     { label: "No", allows_free_text: false, free_text_label: "" },
   ]);
+
+  const [error, setError] = useState("");
+  const [replyError, setReplyError] = useState("");
 
   const [newPollShowResultsBeforeVote, setNewPollShowResultsBeforeVote] = useState(true);
   const [newPollAllowVoteChanges, setNewPollAllowVoteChanges] = useState(true);
@@ -242,6 +249,14 @@ export default function ForumTopicPage() {
   }
 
   useEffect(() => {
+    if (reply) {
+      sessionStorage.setItem(replyDraftKey, reply);
+    } else {
+      sessionStorage.removeItem(replyDraftKey);
+    }
+  }, [reply, replyDraftKey]);
+
+  useEffect(() => {
     if (
       !replyRequested ||
       !topic ||
@@ -393,20 +408,35 @@ export default function ForumTopicPage() {
     if (!reply.trim()) return;
 
     setPosting(true);
-    setError("");
+    setReplyError("");
 
     try {
       await apiJson(`/forums/topics/${topicId}/posts`, {
         method: "POST",
+        authRequired: true,
+        redirectOnAuthFailure: false,
         body: JSON.stringify({
           body_md: reply.trim(),
         }),
       });
 
       setReply("");
+      sessionStorage.removeItem(`forum-reply-${topicId}`);
+
       await loadTopic();
     } catch (err) {
-      setError(err?.message || "Unable to post reply.");
+      const authFailure =
+        err?.status === 401 ||
+        err?.message === "Authentication required";
+
+      if (authFailure) {
+        setAuthExpired(true);
+        setReplyError(
+          "Your login session has ended. Your reply has been saved. Please sign in again to post it."
+        );
+      } else {
+        setReplyError(err?.message || "Unable to post reply.");
+      }
     } finally {
       setPosting(false);
     }
@@ -727,15 +757,6 @@ export default function ForumTopicPage() {
         </div>
       </PageContainer>
     );
-    if (authChecked && authExpired) {
-      return (
-        <PageContainer maxWidth="2xl" className="space-y-6 py-6">
-          <div className="rounded-xl border border-amber-700 bg-amber-950/40 p-5 text-amber-100">
-            Your login has expired. Please sign in again to reply, edit, or delete forum posts.
-          </div>
-        </PageContainer>
-      );
-    }
   }
 
   return (
@@ -1228,7 +1249,33 @@ export default function ForumTopicPage() {
       ) : topic && me ? (
         <div
           ref={replySectionRef}
-          className="rounded-xl border border-slate-700 bg-slate-800 p-5">
+          className="rounded-xl border border-slate-700 bg-slate-800 p-5"
+        >
+          {replyError && (
+            <div className="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 px-4 py-3 text-sm text-amber-100">
+              <div>{replyError}</div>
+
+              {authExpired && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams(window.location.search);
+                    params.set("reply", "1");
+
+                    const next =
+                      `${window.location.pathname}?${params.toString()}`;
+
+                    window.location.href =
+                      `/login?next=${encodeURIComponent(next)}`;
+                  }}
+                  className="mt-3 rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white hover:bg-amber-600"
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
+          )}
+
           <ForumComposer
             value={reply}
             onChange={setReply}
