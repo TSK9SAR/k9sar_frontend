@@ -88,6 +88,7 @@ export default function ForumComposer({
   submitting = false,
   title = "Message",
   value,
+  children,
 }) {
   const textareaRef = useRef(null);
   const [mode, setMode] = useState("write");
@@ -267,6 +268,12 @@ export default function ForumComposer({
       ) : (
         <div className="min-h-[140px] px-4 py-3">
           <ForumMarkdown emptyText="Nothing to preview yet.">{value}</ForumMarkdown>
+        </div>
+      )}
+
+      {children && (
+        <div className="border-t border-slate-700 px-3 py-3">
+          {children}
         </div>
       )}
 

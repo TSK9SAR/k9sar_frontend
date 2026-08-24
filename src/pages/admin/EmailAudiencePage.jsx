@@ -86,6 +86,8 @@ export default function EmailAudiencePage() {
     const [me, setMe] = useState(null);
     const [audienceQuery, setAudienceQuery] = useState("");
     const [interpreting, setInterpreting] = useState(false);
+    const [attachments, setAttachments] = useState([]);
+    const [uploadingAttachments, setUploadingAttachments] = useState(false);
 
     const activeRecipients = useMemo(
         () => recipients.filter((r) => !excludedUserIds.includes(r.user_id)),
@@ -95,6 +97,62 @@ export default function EmailAudiencePage() {
     function updateFilter(name, value) {
         setFilters((prev) => ({ ...prev, [name]: value }));
     }
+
+    async function uploadAttachments(fileList) {
+        const files = Array.from(fileList || []);
+
+        if (!files.length) return;
+
+        setUploadingAttachments(true);
+        setMessage("");
+
+        try {
+            const uploaded = [];
+
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const data = await apiJson("/stored-files", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                uploaded.push(data);
+            }
+
+            setAttachments((prev) => [
+                ...prev,
+                ...uploaded,
+            ]);
+        } catch (err) {
+            console.error(err);
+            setMessage(
+                err?.message || "Attachment upload failed."
+            );
+        } finally {
+            setUploadingAttachments(false);
+        }
+    }
+
+    function removeAttachment(fileId) {
+        setAttachments((prev) =>
+            prev.filter((a) => a.file_id !== fileId)
+        );
+    }
+
+    function formatFileSize(bytes) {
+        const n = Number(bytes || 0);
+
+        if (n < 1024) return `${n} B`;
+        if (n < 1024 * 1024) {
+            return `${(n / 1024).toFixed(1)} KB`;
+        }
+
+        return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+
 
     async function interpretAudienceQuery(queryOverride = null) {
         const queryText = queryOverride || audienceQuery;
@@ -200,6 +258,7 @@ export default function EmailAudiencePage() {
         setExcludedUserIds([]);
         setSubject(DEFAULT_SUBJECT);
         setBodyText(DEFAULT_BODY);
+        setAttachments([]);
         setMessage("");
     }
 
@@ -239,6 +298,9 @@ export default function EmailAudiencePage() {
                     subject,
                     body_text: bodyText,
                     enable_reply: enableReply,
+                    attachment_file_ids: attachments.map(
+                        (a) => a.file_id
+                    ),
                 }),
             });
 
@@ -608,6 +670,66 @@ ${enableReply
                     </Field>
 
                     <div className="mt-4">
+                        <div className="text-xs uppercase tracking-wide text-slate-400 mb-1">
+                            Attachments
+                        </div>
+
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700">
+                            {uploadingAttachments
+                                ? "Uploading…"
+                                : "Add Attachment"}
+
+                            <input
+                                type="file"
+                                multiple
+                                disabled={uploadingAttachments || sending}
+                                onChange={async (e) => {
+                                    await uploadAttachments(e.target.files);
+                                    e.target.value = "";
+                                }}
+                                className="hidden"
+                            />
+                        </label>
+
+                        <div className="mt-2 text-xs text-slate-400">
+                            PDF, Word, Excel, CSV, text, JPG and PNG files.
+                            Maximum 20 MB per file.
+                        </div>
+
+                        {attachments.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                                {attachments.map((attachment) => (
+                                    <div
+                                        key={attachment.file_id}
+                                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2"
+                                    >
+                                        <div className="min-w-0">
+                                            <div className="truncate text-sm text-slate-100">
+                                                {attachment.original_filename}
+                                            </div>
+
+                                            <div className="text-xs text-slate-400">
+                                                {formatFileSize(attachment.file_size)}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                removeAttachment(attachment.file_id)
+                                            }
+                                            disabled={sending}
+                                            className="shrink-0 rounded-md border border-red-500 px-2 py-1 text-xs text-red-200 hover:bg-red-900/30"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-4">
                         <ForumComposer
                             footerNote="Supported placeholders: {first_name}, {last_name}, {name}"
                             minRows={10}
@@ -615,7 +737,11 @@ ${enableReply
                             onSubmit={sendEmail}
                             placeholder={"Hello {first_name},\n\nYour message here...\n\nThank you."}
                             submitClassName="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-                            submitDisabled={!subject.trim() || activeRecipients.length === 0}
+                            submitDisabled={
+                                !subject.trim() ||
+                                activeRecipients.length === 0 ||
+                                uploadingAttachments
+                            }
                             submitLabel={`Send To ${activeRecipients.length} Members`}
                             submittingLabel="Sending..."
                             submitting={sending}

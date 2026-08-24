@@ -13,6 +13,7 @@ export default function ForumCategoryPage() {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
+  const [topicFiles, setTopicFiles] = useState([]);
 
   useEffect(() => {
     loadTopics();
@@ -49,6 +50,18 @@ export default function ForumCategoryPage() {
       label: "Incomplete",
       className: "bg-amber-900 text-amber-100",
     };
+  }
+
+  function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+
+    if (size < 1024) return `${size} B`;
+
+    if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   function surveyOpenClosedBadge(topic) {
@@ -94,29 +107,131 @@ export default function ForumCategoryPage() {
     setPosting(true);
     setError("");
 
+    let createdTopicId = null;
+    let createdPostId = null;
+
     try {
-      const created = await apiJson(`/forums/${categoryId}/topics`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: title.trim(),
-          body_md: bodyMd.trim(),
-          topic_type: "general",
-        }),
-      });
+      // 1. Create topic and opening post.
+      const created = await apiJson(
+        `/forums/${categoryId}/topics`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title: title.trim(),
+            body_md: bodyMd.trim(),
+            topic_type: "general",
+          }),
+        }
+      );
+
+      createdTopicId =
+        created?.topic_id ??
+        created?.topic?.topic_id ??
+        created?.id;
+
+      // ForumTopicDetailOut contains the posts.
+      createdPostId =
+        created?.posts?.[0]?.post_id ??
+        created?.post_id ??
+        created?.first_post_id;
+
+      if (!createdTopicId) {
+        throw new Error(
+          "Topic was created, but the topic ID was not returned."
+        );
+      }
+
+      if (topicFiles.length > 0 && !createdPostId) {
+        throw new Error(
+          "Topic was created, but the opening post ID was not returned."
+        );
+      }
+
+      // 2. Upload and attach each selected file.
+      for (const file of topicFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const token =
+          localStorage.getItem("access_token") ||
+          localStorage.getItem("token");
+
+        const response = await fetch(
+          "/api/stored-files",
+          {
+            method: "POST",
+            headers: token
+              ? {
+                Authorization: `Bearer ${token}`,
+              }
+              : {},
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          let detail = "";
+
+          try {
+            const data = await response.json();
+            detail = data?.detail || "";
+          } catch {
+            // Ignore non-JSON response.
+          }
+
+          throw new Error(
+            detail ||
+            `Unable to upload ${file.name}`
+          );
+        }
+
+        const stored = await response.json();
+
+        if (!stored?.file_id) {
+          throw new Error(
+            `Upload of ${file.name} did not return a file ID.`
+          );
+        }
+
+        await apiJson(
+          `/forums/posts/${createdPostId}/attachments/${stored.file_id}`,
+          {
+            method: "POST",
+            authRequired: true,
+          }
+        );
+      }
 
       setTitle("");
       setBodyMd("");
+      setTopicFiles([]);
 
-      const createdTopicId = created?.topic_id || created?.topic?.topic_id || created?.id;
+      navigate(`/forums/topics/${createdTopicId}`);
 
+    } catch (err) {
+      /*
+       * If the topic already exists, don't imply that the
+       * entire creation failed merely because an attachment did.
+       */
       if (createdTopicId) {
-        navigate(`/forums/topics/${createdTopicId}`);
+        setTitle("");
+        setBodyMd("");
+        setTopicFiles([]);
+
+        navigate(`/forums/topics/${createdTopicId}`, {
+          state: {
+            attachmentError:
+              err?.message ||
+              "One or more attachments could not be added.",
+          },
+        });
+
         return;
       }
 
-      await loadTopics();
-    } catch (err) {
-      setError(err?.message || "Unable to create topic.");
+      setError(
+        err?.message || "Unable to create topic."
+      );
     } finally {
       setPosting(false);
     }
@@ -172,7 +287,76 @@ export default function ForumCategoryPage() {
             submitLabel="Post Topic"
             submitting={posting}
             title="Opening post"
-          />
+          >
+
+            <div className="mt-3">
+              <div className="mb-2 text-sm font-medium text-slate-300">
+                Attachments
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer rounded-md bg-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-600">
+                  Add attachments
+
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const selected = Array.from(
+                        e.target.files || []
+                      );
+
+                      setTopicFiles((prev) => [
+                        ...prev,
+                        ...selected,
+                      ]);
+
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+
+                <span className="text-xs text-slate-400">
+                  You can select multiple files
+                </span>
+              </div>
+
+              {topicFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {topicFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${file.size}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm text-slate-200">
+                          {file.name}
+                        </div>
+
+                        <div className="text-xs text-slate-500">
+                          {formatFileSize(file.size)}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTopicFiles((prev) =>
+                            prev.filter((_, i) => i !== index)
+                          )
+                        }
+                        className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </ForumComposer>
         </div>
 
         <div className="space-y-3">

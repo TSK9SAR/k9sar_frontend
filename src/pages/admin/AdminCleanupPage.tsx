@@ -9,20 +9,22 @@ type CleanupEntity =
     | "handler_keep_user"
     | "user_tree"
     | "topic_survey_tree"
-    | "certificate";
+    | "certificate"
+    | "email_campaign";
 
 type CleanupMode = CleanupEntity;
 
 type Preview = {
     entity: CleanupEntity;
-    mode?: string;
 
+    mode?: string;
     team_id?: number;
     dog_id?: number;
     handler_id?: number;
     user_id?: number;
     topic_id?: number;
     certificate_id?: number;
+    campaign_id?: number;
 
     label: string;
     will_delete: Record<string, number>;
@@ -65,13 +67,78 @@ function deleteUrl(preview: Preview) {
             return `/admin/users/${preview.user_id}/hard-delete-tree`;
 
         case "topic_survey_tree":
-             return `/admin/topic-tree/${preview.topic_id}/hard-delete-tree`;
+            return `/admin/topic-tree/${preview.topic_id}/hard-delete-tree`;
 
         case "certificate":
             return `/admin/certificates/${preview.certificate_id}/hard-delete`;
 
+        case "email_campaign":
+            return `/admin/email-campaigns/${preview.campaign_id}/hard-delete`;
+
         default:
             throw new Error("Unsupported cleanup entity.");
+    }
+}
+
+function previewUrl(mode: CleanupMode, id?: number) {
+    switch (mode) {
+        case "orphan_dogs":
+            return "/admin/dogs/orphans/delete-preview";
+
+        case "team":
+            return `/admin/teams/${id}/delete-preview`;
+
+        case "dog":
+            return `/admin/dogs/${id}/delete-preview`;
+
+        case "handler_keep_user":
+            return `/admin/handlers/${id}/delete-preview`;
+
+        case "user_tree":
+            return `/admin/users/${id}/delete-preview`;
+
+        case "topic_survey_tree":
+            return `/admin/topic-tree/${id}/preview`;
+
+        case "certificate":
+            return `/admin/certificates/${id}/preview`;
+
+        case "email_campaign":
+            return `/admin/email-campaigns/${id}/delete-preview`;
+
+        default:
+            throw new Error("Unsupported cleanup mode.");
+    }
+}
+
+function idLabel(mode: CleanupMode) {
+    switch (mode) {
+        case "team":
+            return "Team ID";
+
+        case "dog":
+            return "Dog ID";
+
+        case "handler_keep_user":
+            return "Handler ID";
+
+        case "user_tree":
+            return "User ID";
+
+        case "topic_survey_tree":
+            return "Topic ID";
+
+        case "certificate":
+            return "Certificate ID";
+
+        case "email_campaign":
+            return "Campaign ID";
+
+        case "orphan_dogs":
+            return "";
+
+        default:
+            return "ID";
     }
 }
 
@@ -92,7 +159,7 @@ export default function AdminCleanupPage() {
 
 
     async function checkAccess() {
-        await apiJson("/admin/canary", {
+        await apiJson("/admin/canary_admin", {
             authRequired: true,
             mfaRequired: true,
         });
@@ -109,44 +176,19 @@ export default function AdminCleanupPage() {
         try {
             await checkAccess();
 
-            let url = "";
+            let url: string;
 
             if (mode === "orphan_dogs") {
-                url = "/admin/dogs/orphans/delete-preview";
+                url = previewUrl(mode);
             } else {
                 const id = Number(targetId);
 
                 if (!Number.isInteger(id) || id <= 0) {
-                    const idLabel =
-                        mode === "team"
-                            ? "team_id"
-                            : mode === "dog"
-                                ? "dog_id"
-                                : mode === "handler_keep_user"
-                                    ? "handler_id"
-                                    : mode === "topic_survey_tree"
-                                        ? "topic_id"
-                                        : mode === "certificate"
-                                            ? "certification_id"
-                                            : "user_id";
-
-                    setErr(`Enter a valid ${idLabel}.`);
-                    setLoading(false);
+                    setErr(`Enter a valid ${idLabel(mode)}.`);
                     return;
                 }
 
-                url =
-                    mode === "team"
-                        ? `/admin/teams/${id}/delete-preview`
-                        : mode === "dog"
-                            ? `/admin/dogs/${id}/delete-preview`
-                            : mode === "handler_keep_user"
-                                ? `/admin/handlers/${id}/delete-preview`
-                                : mode === "topic_survey_tree"
-                                    ? `/admin/topic-tree/${id}/preview`
-                                    : mode === "certificate"
-                                        ? `/admin/certificates/${id}/preview`
-                                        : `/admin/users/${id}/delete-preview`;
+                url = previewUrl(mode, id);
             }
 
             const p = await apiJson<Preview>(url, {
@@ -157,7 +199,12 @@ export default function AdminCleanupPage() {
             setPreview(p);
         } catch (e: any) {
             setPreview(null);
-            setErr(errorMessage(e, "Failed to load cleanup preview."));
+            setErr(
+                errorMessage(
+                    e,
+                    "Failed to load cleanup preview."
+                )
+            );
         } finally {
             setLoading(false);
         }
@@ -243,30 +290,44 @@ export default function AdminCleanupPage() {
                                 }}
                                 className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                             >
-                                <option value="certificate">Delete certificate</option>
-                                <option value="team">Delete team</option>
-                                <option value="dog">Delete dog</option>
-                                <option value="orphan_dogs">Delete orphan dogs</option>
-                                <option value="handler_keep_user">Delete handler, keep user</option>
-                                <option value="user_tree">Delete user and all related data</option>
-                                <option value="topic_survey_tree">Delete topic and all survey data</option>
+                                <option value="team">
+                                    Delete team
+                                </option>
+
+                                <option value="dog">
+                                    Delete dog
+                                </option>
+
+                                <option value="orphan_dogs">
+                                    Delete orphan dogs
+                                </option>
+
+                                <option value="handler_keep_user">
+                                    Delete handler, keep user
+                                </option>
+
+                                <option value="user_tree">
+                                    Delete user and all related data
+                                </option>
+
+                                <option value="topic_survey_tree">
+                                    Delete topic and all survey data
+                                </option>
+
+                                <option value="certificate">
+                                    Delete certificate
+                                </option>
+
+                                <option value="email_campaign">
+                                    Delete email campaign history
+                                </option>
                             </select>
                         </div>
 
                         {mode !== "orphan_dogs" && (
                             <div>
                                 <label className="block text-xs font-medium text-slate-300">
-                                    {mode === "team"
-                                        ? "Team ID"
-                                        : mode === "dog"
-                                            ? "Dog ID"
-                                            : mode === "handler_keep_user"
-                                                ? "Handler ID"
-                                                : mode === "topic_survey_tree"
-                                                    ? "Topic ID"
-                                                    : mode === "certificate"
-                                                        ? "Certification ID"
-                                                        : "User ID"}
+                                    {idLabel(mode)}
                                 </label>
                                 <input
                                     value={targetId}

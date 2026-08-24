@@ -22,6 +22,10 @@ export default function ForumTopicPage() {
   const replyRequested =
     searchParams.get("reply") === "1";
   const [topic, setTopic] = useState(null);
+  const [replyFiles, setReplyFiles] = useState([]);
+
+  const [editNewFiles, setEditNewFiles] = useState([]);
+  const [editRemovedFileIds, setEditRemovedFileIds] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
@@ -131,6 +135,74 @@ export default function ForumTopicPage() {
         required.length > 0 &&
         missing.length === 0,
     };
+  }
+
+  function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+
+    if (size < 1024) {
+      return `${size} B`;
+    }
+
+    if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+
+  async function downloadAttachment(attachment) {
+    setError("");
+
+    try {
+      const token =
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("token");
+
+      const response = await fetch(
+        `/api/forums/attachments/${attachment.attachment_id}`,
+        {
+          headers: token
+            ? {
+              Authorization: `Bearer ${token}`,
+            }
+            : {},
+        }
+      );
+
+      if (!response.ok) {
+        let detail = "";
+
+        try {
+          const data = await response.json();
+          detail = data?.detail || "";
+        } catch {
+          // Ignore non-JSON response.
+        }
+
+        throw new Error(
+          detail || `Download failed (HTTP ${response.status})`
+        );
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        attachment.original_filename || "attachment";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(
+        err?.message || "Unable to download attachment."
+      );
+    }
   }
 
   function resetPollForm() {
@@ -368,6 +440,7 @@ export default function ForumTopicPage() {
     setError("");
 
     try {
+      // Update post text.
       await apiJson(`/forums/posts/${postId}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -375,11 +448,83 @@ export default function ForumTopicPage() {
         }),
       });
 
+      // Detach attachments marked for removal.
+      for (const fileId of editRemovedFileIds) {
+        await apiJson(
+          `/forums/posts/${postId}/attachments/${fileId}`,
+          {
+            method: "DELETE",
+            authRequired: true,
+          }
+        );
+      }
+
+      // Upload and attach newly selected files.
+      for (const file of editNewFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const token =
+          localStorage.getItem("access_token") ||
+          localStorage.getItem("token");
+
+        const response = await fetch(
+          "/api/stored-files",
+          {
+            method: "POST",
+            headers: token
+              ? {
+                Authorization: `Bearer ${token}`,
+              }
+              : {},
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          let detail = "";
+
+          try {
+            const data = await response.json();
+            detail = data?.detail || "";
+          } catch {
+            // Ignore non-JSON response.
+          }
+
+          throw new Error(
+            detail ||
+            `Unable to upload ${file.name}`
+          );
+        }
+
+        const stored = await response.json();
+
+        if (!stored?.file_id) {
+          throw new Error(
+            `Upload of ${file.name} did not return a file ID.`
+          );
+        }
+
+        await apiJson(
+          `/forums/posts/${postId}/attachments/${stored.file_id}`,
+          {
+            method: "POST",
+            authRequired: true,
+          }
+        );
+      }
+
       setEditingPostId(null);
       setEditBody("");
+      setEditNewFiles([]);
+      setEditRemovedFileIds([]);
+
       await loadTopic();
+
     } catch (err) {
-      setError(err?.message || "Unable to save edit.");
+      setError(
+        err?.message || "Unable to save edit."
+      );
     } finally {
       setSavingPostId(null);
     }
@@ -410,33 +555,111 @@ export default function ForumTopicPage() {
     setPosting(true);
     setReplyError("");
 
+    let createdPostId = null;
+
     try {
-      await apiJson(`/forums/topics/${topicId}/posts`, {
-        method: "POST",
-        authRequired: true,
-        redirectOnAuthFailure: false,
-        body: JSON.stringify({
-          body_md: reply.trim(),
-        }),
-      });
+      const createdPost = await apiJson(
+        `/forums/topics/${topicId}/posts`,
+        {
+          method: "POST",
+          authRequired: true,
+          redirectOnAuthFailure: false,
+          body: JSON.stringify({
+            body_md: reply.trim(),
+          }),
+        }
+      );
+
+      createdPostId =
+        createdPost?.post_id ??
+        createdPost?.id;
+
+      if (!createdPostId) {
+        throw new Error(
+          "Reply was created, but the new post ID was not returned."
+        );
+      }
+
+      for (const file of replyFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const token =
+          localStorage.getItem("access_token") ||
+          localStorage.getItem("token");
+
+        const response = await fetch(
+          "/api/stored-files",
+          {
+            method: "POST",
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : {},
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Unable to upload ${file.name}`
+          );
+        }
+
+        const stored = await response.json();
+
+        await apiJson(
+          `/forums/posts/${createdPostId}/attachments/${stored.file_id}`,
+          {
+            method: "POST",
+            authRequired: true,
+            redirectOnAuthFailure: false,
+          }
+        );
+      }
 
       setReply("");
+      setReplyFiles([]);
       sessionStorage.removeItem(`forum-reply-${topicId}`);
 
       await loadTopic();
+
     } catch (err) {
+      if (createdPostId) {
+        // The reply already exists. Don't tell the user posting failed.
+        setReply("");
+        setReplyFiles([]);
+        sessionStorage.removeItem(`forum-reply-${topicId}`);
+
+        await loadTopic();
+
+        setReplyError(
+          `Your reply was posted, but an attachment could not be added: ${err?.message || "unknown attachment error"
+          }`
+        );
+
+        return;
+      }
+
       const authFailure =
         err?.status === 401 ||
         err?.message === "Authentication required";
 
       if (authFailure) {
-        setAuthExpired(true);
+        sessionStorage.setItem(
+          `forum-reply-${topicId}`,
+          reply
+        );
+
         setReplyError(
           "Your login session has ended. Your reply has been saved. Please sign in again to post it."
         );
-      } else {
-        setReplyError(err?.message || "Unable to post reply.");
+
+        return;
       }
+
+      setReplyError(
+        err?.message || "Unable to post reply."
+      );
     } finally {
       setPosting(false);
     }
@@ -922,6 +1145,8 @@ export default function ForumTopicPage() {
                       onClick={() => {
                         setEditingPostId(post.post_id);
                         setEditBody(post.body_md || "");
+                        setEditNewFiles([]);
+                        setEditRemovedFileIds([]);
                       }}
                       type="button"
                     >
@@ -968,13 +1193,141 @@ export default function ForumTopicPage() {
                     submitting={savingPostId === post.post_id}
                     submitDisabled={!canEditPost(post)}
                     title="Edit post"
-                  />
+                  >
+
+                    {Array.isArray(post.attachments) &&
+                      post.attachments.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-slate-300">
+                            Current attachments
+                          </div>
+
+                          {post.attachments.map((attachment) => {
+                            const markedForRemoval =
+                              editRemovedFileIds.includes(attachment.file_id);
+
+                            return (
+                              <div
+                                key={attachment.attachment_id}
+                                className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2"
+                              >
+                                <div
+                                  className={`min-w-0 ${markedForRemoval
+                                    ? "opacity-40 line-through"
+                                    : ""
+                                    }`}
+                                >
+                                  <div className="truncate text-sm text-slate-200">
+                                    {attachment.original_filename}
+                                  </div>
+
+                                  <div className="text-xs text-slate-500">
+                                    {formatFileSize(attachment.file_size)}
+                                  </div>
+                                </div>
+
+                                {markedForRemoval ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditRemovedFileIds((prev) =>
+                                        prev.filter(
+                                          (id) => id !== attachment.file_id
+                                        )
+                                      )
+                                    }
+                                    className="text-xs text-blue-300 hover:text-blue-200"
+                                  >
+                                    Keep
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditRemovedFileIds((prev) => [
+                                        ...prev,
+                                        attachment.file_id,
+                                      ])
+                                    }
+                                    className="text-xs text-red-300 hover:text-red-200"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                    <div>
+                      <div className="mb-2 text-sm font-medium text-slate-300">
+                        Add attachments
+                      </div>
+
+                      <label className="inline-block cursor-pointer rounded-md bg-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-600">
+                        Add attachments
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const selected = Array.from(
+                              e.target.files || []
+                            );
+
+                            setEditNewFiles((prev) => [
+                              ...prev,
+                              ...selected,
+                            ]);
+
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+
+                      {editNewFiles.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {editNewFiles.map((file, index) => (
+                            <div
+                              key={`${file.name}-${file.size}-${index}`}
+                              className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate text-sm text-slate-200">
+                                  {file.name}
+                                </div>
+
+                                <div className="text-xs text-slate-500">
+                                  {formatFileSize(file.size)}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditNewFiles((prev) =>
+                                    prev.filter((_, i) => i !== index)
+                                  )
+                                }
+                                className="text-xs text-red-300 hover:text-red-200"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </ForumComposer>
 
                   <button
                     className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-600"
                     onClick={() => {
                       setEditingPostId(null);
                       setEditBody("");
+                      setEditNewFiles([]);
+                      setEditRemovedFileIds([]);
                     }}
                     type="button"
                   >
@@ -984,6 +1337,44 @@ export default function ForumTopicPage() {
               ) : post.post_type !== "poll" ? (
                 <ForumMarkdown>{post.body_md}</ForumMarkdown>
               ) : null}
+
+              {Array.isArray(post.attachments) &&
+                post.attachments.length > 0 && (
+                  <div className="mt-4 border-t border-slate-700 pt-3">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Attachments
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      {post.attachments.map((attachment) => (
+                        <div
+                          key={attachment.attachment_id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-slate-200">
+                              {attachment.original_filename}
+                            </div>
+
+                            <div className="text-xs text-slate-500">
+                              {formatFileSize(attachment.file_size)}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadAttachment(attachment)
+                            }
+                            className="shrink-0 rounded-md bg-slate-700 px-3 py-1.5 text-xs font-medium text-blue-300 hover:bg-slate-600 hover:text-blue-200"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
               {(() => {
                 const postBallot = ballots.find(
@@ -1284,7 +1675,71 @@ export default function ForumTopicPage() {
             submitLabel="Post Reply"
             submitting={posting}
             title="Reply"
-          />
+          >
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-slate-300">
+                Attachments
+              </label>
+
+              <div className="mt-2 flex items-center gap-3">
+                <label className="cursor-pointer rounded-md bg-slate-700 px-3 py-2 text-sm text-slate-100 hover:bg-slate-600">
+                  Add attachments
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.files || []);
+
+                      setReplyFiles((prev) => [
+                        ...prev,
+                        ...selected,
+                      ]);
+
+                      // Allows selecting the same file again later.
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+
+                <span className="text-xs text-slate-400">
+                  You can select multiple files
+                </span>
+              </div>
+
+              {replyFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {replyFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${file.size}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm text-slate-200">
+                          {file.name}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {formatFileSize(file.size)}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyFiles((prev) =>
+                            prev.filter((_, i) => i !== index)
+                          );
+                        }}
+                        className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ForumComposer>
         </div>
       ) : null}
     </PageContainer>

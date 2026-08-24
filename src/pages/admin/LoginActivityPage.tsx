@@ -26,6 +26,15 @@ type AuthEventRow = {
   detail?: string | null;
 };
 
+type EmailCampaignAttachmentRow = {
+  attachment_id: number;
+  file_id: number;
+  original_filename: string;
+  mime_type?: string | null;
+  file_size: number;
+  delivery_mode?: string | null;
+};
+
 type PublicPortalEventRow = {
   event_id: number;
   occurred_at?: string | null;
@@ -46,6 +55,7 @@ type EmailCampaignRow = {
   recipient_count?: number | null;
   status?: string | null;
   filter_json?: any;
+  attachments?: EmailCampaignAttachmentRow[];
 };
 
 type ActivityMode = "login" | "public" | "email";
@@ -56,6 +66,17 @@ function fmtDateTime(value?: string | null) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+function fmtFileSize(bytes?: number | null) {
+  const n = Number(bytes || 0);
+
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) {
+    return `${(n / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function fmtRelative(v?: string | null) {
@@ -218,6 +239,36 @@ function EmailCampaignActivity() {
                     {row.body_text || "(No body saved)"}
                   </div>
                 </div>
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                      Attachments
+                    </div>
+
+                    <div className="space-y-2">
+                      {row.attachments.map((attachment) => (
+                        <div
+                          key={attachment.attachment_id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-950 px-3 py-2"
+                        >
+                          <div>
+                            <div className="text-sm text-slate-100">
+                              {attachment.original_filename}
+                            </div>
+
+                            <div className="mt-0.5 text-xs text-slate-400">
+                              {attachment.mime_type || "Unknown file type"}
+                            </div>
+                          </div>
+
+                          <div className="text-xs text-slate-400">
+                            {fmtFileSize(attachment.file_size)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -292,10 +343,10 @@ export default function AdminLoginActivityPage() {
     async function loadLoginActivity() {
       setLoading(true);
       try {
-const data = await apiJson<LoginActivityRow[]>("/admin/users/login-activity", {
-  authRequired: true,
-  mfaRequired: false,
-});
+        const data = await apiJson<LoginActivityRow[]>("/admin/users/login-activity", {
+          authRequired: true,
+          mfaRequired: false,
+        });
         if (!alive) return;
         setRows(Array.isArray(data) ? data : []);
       } catch (err: any) {
