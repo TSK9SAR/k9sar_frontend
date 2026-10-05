@@ -1,216 +1,57 @@
-# System Status and Ownership
+# K9SAR ownership and access register
 
-### Production System
+Updated 2026-10-05. Technical procedures and verification evidence are in the
+[maintenance and handoff guide](MAINTENANCE_AND_HANDOFF.md).
 
-- **System name:** K9SAR / TSK9SAR
-- **Production site:** https://tsk9sar.org
-- **Primary purpose:** SAR K9 certification, standards, ID cards, public verification, forums, and administration
-- **Current production status:** Active / in use
+## Accountable people
 
-### Primary Owner / Administrator
+These details carry forward the existing project record. Account membership and
+recovery access were not independently audited.
 
-- **Primary owner:** Beat Marti
-- **Primary technical administrator:** Beat Marti
-- **Primary contact email:** beatmarti@gmail.com
-- **Backup administrator:** TBD
-- **Emergency technical contact:** TBD
+| Responsibility | Current record | Handoff status |
+| --- | --- | --- |
+| Project owner | Beat Marti | Confirm during handoff |
+| Primary technical administrator | Beat Marti | Confirm during handoff |
+| Primary contact | beatmarti@gmail.com | Existing recorded contact |
+| Backup administrator | Unassigned | Name and test access |
+| Emergency technical contact | Unassigned | Name and record contact method |
+| Backup/restore owner | Unassigned | Assign responsibility and restore-test date |
 
-### Source Code Repositories
+## Services and access
 
-- **Frontend repository:** https://github.com/Roamer105/k9sar_frontend
-- **Backend repository:** https://github.com/Roamer105/k9sar_backend
-- **Primary branch:** main
-- **Organization:** TSK9SAR
-- **Both repositories:** https://github.com/TSK9SAR
-- **Deployment source of truth:** GitHub repositories
+| Service | Purpose / known location | Owner record | Successor verification |
+| --- | --- | --- | --- |
+| GitHub organization TSK9SAR | [Frontend](https://github.com/TSK9SAR/k9sar_frontend), [backend](https://github.com/TSK9SAR/k9sar_backend); `main` | Beat Marti | Individual clone/branch/PR access and repository administrators identified |
+| AWS Lightsail | Ubuntu production host | Beat Marti | Instance/region, firewall, billing, snapshots and recovery access recorded |
+| AWS SES | Outbound mail; SMTP endpoint in `us-east-2` | Beat Marti | Sending identity, permissions, limits, bounces/complaints and billing reviewed |
+| AWS S3 | Database backup destination in maintenance guide | Beat Marti | Successor can retrieve a backup; retention and recovery permissions checked |
+| Cloudflare | `tsk9sar.org` DNS, Workers, Email Routing | Beat Marti | Individual access, MFA/recovery, DNS/TLS, Worker deployment and routes tested |
+| Domain registration | Cloudflare according to prior ownership record | Beat Marti | Confirm registrar, renewal, payment and recovery email in account |
+| Linux / Docker / MySQL | Services and persistent application data | Beat Marti | Own SSH key, appropriate sudo/Docker and database recovery access tested |
+| Google / Microsoft identity apps | OAuth client configuration exists in backend environment | Unverified | Identify app owners, callbacks, credential expiry and actual usage |
 
-### Hosting / Infrastructure
+Keep passwords, private keys, MFA recovery codes, and secret values outside this
+register. Record protected vault item references privately. Give successors
+individual accounts and keys; repository access does not grant access to hosting,
+Cloudflare, the database, or production application administration.
 
-- **Hosting provider:** AWS Lightsail
-- **Production server:** Lightsail Linux instance
-- **Backend framework:** FastAPI
-- **Frontend framework:** React / Vite
-- **Database:** MySQL
-- **Static assets:** Nginx-served static directory
-- **Domain:** tsk9sar.org
+## Recovery status
 
-### Access Ownership
+- Database: daily 02:00 UTC dump; local seven-day retention policy and S3 copy
+  confirmed on 2026-10-05.
+- Uploads: Sunday 03:15 UTC archive; local fourteen-day retention policy.
+- Latest database and upload gzip integrity checks passed on 2026-10-05.
+- Full isolated restore drill: **not yet verified**.
+- Scheduled off-server coverage for uploads, signatures, videos, static assets,
+  configuration and encryption keys: **not established by this audit**.
+- Recovery objectives, monitoring owner and alert recipients: **unassigned**.
 
-- **AWS account owner:** Beat Marti
-- **AWS administrators:**
-  - Beat Marti
-  - Additional administrator: TBD
-- **GitHub owner/account:** Roamer105
-- **GitHub collaborators:** TBD
-- **Domain registrar:** Cloudflare
-- **DNS provider:** Cloudflare
+## Handoff acceptance
 
-### Critical Services
-
-- **Web application:** tsk9sar.org
-- **API backend:** tsk9sar.org/api
-- **Public certificate verification:** QR-code based public verification routes
-- **Standards documents:** Stored through backend document/file routes
-- **Static images/logos:** Served from static directory
-- **Email services:** AWS SES (outbound), Cloudflare Email Routing (inbound)
-- **Backup process:** TBD
-
-### Security Requirements
-
-- Root AWS account should not be used for day-to-day work.
-- Each administrator should have an individual IAM user.
-- MFA should be enabled for all AWS administrator accounts.
-- GitHub access should use individual accounts, not shared passwords.
-- Production database access should be limited to trusted administrators.
-- Delete/cleanup operations should only be performed through preview-confirm routes.
-
-### Backup and Recovery Ownership
-
-- **Database backup owner:** TBD
-- **Backup storage location:** TBD
-- **Backup frequency:** TBD
-- **Restore procedure documented:** No / TBD
-- **Last verified restore test:** TBD
-
-### Operational Risks
-
-- Institutional knowledge is currently concentrated with Beat Marti.
-- Backup administrator access should be confirmed.
-- Database backup and restore procedure should be documented and tested.
-- Domain/DNS ownership should be clearly recorded.
-- AWS Lightsail access should not depend on the root account only.
-
----
-
-# Infrastructure Ownership
-
-## AWS
-
-### Purpose
-
-- Application hosting
-- Compute resources
-- Database hosting
-- AWS SES outbound email
-
-### Provider
-
-- AWS Lightsail
-- AWS SES
-
-### Account Owner
-
-- Beat Marti
-
-### Administrators
-
-- Beat Marti
-- Additional Administrator(s): TBD
-
-### Critical Assets
-
-- Production Lightsail instance
-- Production database
-- Snapshots and backups
-- SES configuration and identities
-
-### Recovery Requirements
-
-- Root account access retained
-- MFA enabled
-- At least two administrator IAM accounts
-
----
-
-## Cloudflare
-
-### Purpose
-
-- Domain registrar
-- DNS hosting
-- SSL/TLS proxying
-- DDoS protection
-- Domain routing
-- Email forwarding
-
-### Account Owner
-
-- Beat Marti
-
-### Administrators
-
-- Beat Marti
-- Additional Administrator(s): TBD
-
-### Registered Domains
-
-- tsk9sar.org
-- Additional connected domains: TBD
-
-### Critical Assets
-
-- Domain registration
-- Nameservers
-- DNS records
-- SSL/TLS settings
-- Proxy status
-- Redirect rules
-- WAF/security settings
-- Email forwarding routes
-
-### Operational Notes
-
-- Cloudflare controls inbound forwarding routes.
-- AWS SES controls outgoing application messages.
-- DNS records for SES verification, DKIM, SPF, and DMARC are managed in Cloudflare.
-- Loss of Cloudflare access may affect both inbound forwarding and outbound email authentication.
-- Loss of AWS access may affect outbound application email.
-
-### Recovery Requirements
-
-- MFA enabled
-- At least two Cloudflare administrators
-- Registrar recovery email documented
-- Domain auto-renewal enabled
-- Payment method current
-
----
-
-## Email Services
-
-### Inbound Email
-
-- **Provider:** Cloudflare Email Routing
-- **Purpose:** Forward inbound domain email to designated recipient accounts
-
-### Outbound Email
-
-- **Provider:** AWS SES
-- **Purpose:** Application-generated outbound email
-
----
-
-## Backup Administrator Checklist
-
-A successor administrator should have verified access to:
-
-- AWS account (IAM Administrator)
-- AWS SES
-- Cloudflare
-- Domain registration
-- GitHub repositories
-- Production database
-- Backup location and restore procedures
-- Email routing and forwarding configuration
-
----
-
-| Service | Owner | Backup Admin | Notes |
-|----------|----------|----------|----------|
-| AWS Lightsail | Beat Marti | TBD | Production hosting |
-| Cloudflare | Beat Marti | TBD | DNS, SSL, registrar |
-| GitHub | Beat Marti | TBD | Source control |
-| Domain Registrar | Cloudflare | TBD | Domain ownership |
-| Database | Beat Marti | TBD | Production data |
-| AWS SES | Beat Marti | TBD | Outbound email |
-| Cloudflare Email Routing | Beat Marti | TBD | Inbound email forwarding |
+- [ ] Owner and backup/emergency contacts confirmed.
+- [ ] Incoming maintainer has individual service access and recovery credentials.
+- [ ] Billing, renewals, snapshots, backup retention and alerts reviewed.
+- [ ] Isolated database and file restore completed and recorded.
+- [ ] Deployment and rollback rehearsed in an isolated environment.
+- [ ] Operational gaps in the maintenance guide assigned to named owners.
+- [ ] Outgoing and incoming maintainers sign off with date and repository revisions.

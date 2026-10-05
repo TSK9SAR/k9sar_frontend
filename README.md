@@ -1,16 +1,30 @@
-# React + Vite
+# K9SAR frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite application for Tri-State K9 Search & Rescue membership, certifications,
+standards, public verification, forums, and administration.
 
-Currently, two official plugins are available:
+- Production: [tsk9sar.org](https://tsk9sar.org)
+- **Start here:** [Project maintenance and handoff guide](docs/MAINTENANCE_AND_HANDOFF.md)
+- [Ownership and access register](docs/K9SAR_System_Status_and_Ownership.md)
+- [Frontend API inventory](docs/API_REFERENCE.md)
+- [Backend repository](https://github.com/TSK9SAR/k9sar_backend)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Local commands
 
-## React Compiler
+Use Node 24.12.0 or a compatible supported version and the committed lockfile.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```powershell
+npm.cmd ci
+npm.cmd run dev
+npm.cmd run build
+npm.cmd run lint
+```
 
-## Expanding the ESLint configuration
+The entry point is `src/main.jsx`. Production uses `VITE_API_BASE_URL=/api`.
+The current Vite configuration has no development API proxy; follow the guide
+to connect an isolated development backend. Values named `VITE_*` are public
+browser configuration, never secrets.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+At the 2026-10-05 audit, the build passed and lint reported 16 existing errors
+and 5 warnings. There is no frontend automated test script or checked-in CI
+workflow. See the guide for release checks and deployment/rollback procedures.
