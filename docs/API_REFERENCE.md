@@ -137,6 +137,20 @@ adding or changing a client call.
 | GET | `/forums/activity/summary` | Auth | Nav/dashboard unread activity summary; client reads `unread_count`. |
 | POST | `/admin/forum/topics/{topicId}/close-survey` | MFA | Close a survey. |
 | POST | `/admin/forum/topics/{topicId}/reopen-survey` | MFA | Reopen a survey. |
+| GET | `/admin/forum/categories` | Administrator | List all categories, including hidden ones, with topic counts and edit revisions. |
+| POST | `/admin/forum/categories` | Administrator + MFA | Create a category. |
+| PUT | `/admin/forum/categories/{categoryId}` | Administrator + MFA | Edit category settings; requires `expected_revision` from the listing. |
+| POST | `/admin/forum/categories/{categoryId}/delete-preview` | Administrator + MFA | Preview deletion of an empty category; returns confirmation token/text. |
+| POST | `/admin/forum/categories/{categoryId}/delete-confirm` | Administrator + MFA | Delete an empty category using the token and exact confirmation text. |
+| GET | `/admin/forum/topics?q=&category_id=&topic_id=&offset=0&limit=25` | Administrator | Search all topics, including hidden categories; filters optional. |
+| POST | `/admin/forum/topics/{topicId}/move-preview` | Administrator + MFA | Preview a move with `destination_category_id`; returns access rules, counts and confirmation token. |
+| POST | `/admin/forum/topics/{topicId}/move-confirm` | Administrator + MFA | Move using `destination_category_id` and `confirmation_token`; retain all discussion content and IDs. |
+
+Delete/move confirmations expire in five minutes and are bound to the administrator
+and reviewed state. Stale edits/previews return 409; refresh and review again.
+Category management and moves do not send notifications. Hidden categories reject
+normal forum access and inbound email replies. A destination must be visible;
+topics can be moved out of hidden categories.
 
 ## Supervisor and administrator endpoints
 

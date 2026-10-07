@@ -493,7 +493,7 @@ export default function AppLayout() {
                         <NavLink to="/admin/login-activity" className={({ isActive }) => linkClass(isActive)}>
                           Site Activity
                         </NavLink>
-                        <NavLink to="/admin/forum-surveys" className={({ isActive }) => linkClass(isActive)}>
+                        <NavLink to="/admin/forums" className={({ isActive }) => linkClass(isActive)}>
                           Manage Forums & Surveys
                         </NavLink>
                         <NavLink to="/admin/config" className={({ isActive }) => linkClass(isActive)}>
@@ -655,7 +655,7 @@ export default function AppLayout() {
                           <NavLink to="/admin/login-activity" className={({ isActive }) => linkClass(isActive)}>
                             Site Activity
                           </NavLink>
-                          <NavLink to="/admin/forum-surveys" className={({ isActive }) => linkClass(isActive)}>
+                          <NavLink to="/admin/forums" className={({ isActive }) => linkClass(isActive)}>
                             Manage Forums & Surveys
                           </NavLink>
                           <NavLink to="/admin/config" className={({ isActive }) => linkClass(isActive)}>

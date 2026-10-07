@@ -4,6 +4,10 @@
 onboarding and recovery for [tsk9sar.org](https://tsk9sar.org): frontend, backend,
 database, files, hosting, authentication and email. It contains no secret values.
 
+Forum administration source and isolated tests were additionally verified on
+2026-10-07. This feature verification does not update the infrastructure audit
+date above or establish a production deployment.
+
 The canonical editable copy is `docs/MAINTENANCE_AND_HANDOFF.md` in the
 [frontend repository](https://github.com/TSK9SAR/k9sar_frontend). A standalone copy
 is supplied at `C:\dev\K9SAR_Maintenance_and_Handoff.md`; refresh it after editing
@@ -119,7 +123,7 @@ does not grant access to hosting, secrets, the database or member administration
 | Authentication | Auth/MFA components and route guards | `auth_routes.py`, `twofa_routes.py`, `webauthn_routes.py`, `oauth_routes.py`, `app/security/` |
 | Members / handlers / dogs / teams | Corresponding `src/pages/` and `src/pages/admin/` modules | Corresponding route/model modules; user accounts and handler/member/team records are distinct |
 | Standards / certifications / ID cards | Matrix, standards, certificate pages and card components | `standard_routes.py`, `certification_routes.py`, `id_cards.py`, public verification routes |
-| Forums / surveys | `Forum*Page.jsx`, `components/forums/`, admin survey page | `forum.py`, `admin_forum_surveys.py`, forum models/services |
+| Forums / surveys | `Forum*Page.jsx`, `components/forums/`, `AdminForumManagementPage.jsx`, admin survey page | `forum.py`, `admin_forum_management.py`, `admin_forum_surveys.py`, forum models/services |
 | Files / signatures | Upload and attachment UI | `documents.py`, `stored_files.py`, `admin_stored_files.py`, `signature_routes.py` |
 | Mail / recovery links | Invite/reset/email-entry pages | `app/services/mailer.py`, `links.py`, notifications and invite/reset routes |
 | Email replies | Existing forum displays the resulting post | `forum_inbound_email.py`, `forum_email_replies.py`, `cloudflare/forum-email/` |
@@ -254,6 +258,7 @@ Run backend forum tests in an isolated copy with its dependencies:
 
 ```bash
 python -m unittest discover -s tests -p 'test_forum_email*.py' -v
+python -m unittest discover -s tests -p 'test_forum_management.py' -v
 ```
 
 These tests inject SQLite before production database imports and mock notification
@@ -273,9 +278,10 @@ Install test dependencies in the test workspace, not the live backend container.
 
 | Verification | Evidence / limitation |
 | --- | --- |
-| Frontend build | Passed 2026-10-05 with installed dependencies; fresh `npm ci` not repeated in this audit |
+| Frontend build | Passed 2026-10-07 with installed dependencies; fresh `npm ci` not repeated in this audit |
 | Frontend lint | 16 existing errors, 5 warnings; JS/JSX only, no full TypeScript lint/typecheck or frontend test script |
-| Backend forum tests | 16 passed during forum release verification, 2026-10-04 |
+| Backend forum tests | 16 email tests and 11 administration tests passed in isolated, network-disabled containers on 2026-10-07 |
+| Forum administration UI | Desktop and 390px mobile browser checks with synthetic API data: create/edit/hide, move and stale-preview retry, delete, hidden topics, authorization errors; no live member data modified |
 | Worker tests | 7 Node tests and 1 workerd test passed during that verification |
 | Real email reply | Owner confirmed successful end-to-end posting before the backend commit |
 | API/site | Local JSON health/OpenAPI pass; public site and OpenAPI HTTP 200 on 2026-10-05 |
@@ -456,6 +462,43 @@ recreate the backend with existing mounts. This rejects replies from old emails
 too. Preserve normal forwarding. For Worker regressions, redeploy a reviewed prior
 source/version and check shared-secret compatibility. Record the previous Worker
 version before each release.
+
+### Forum category management and topic moves
+
+The source includes **Administrator → Manage Forums & Surveys**, at
+`/admin/forums`, with a link to the existing survey reports. Administrators also
+have **Move Topic** on a discussion, which opens the management page filtered to
+that topic. Deploy both the backend and frontend changes together (backend first).
+No database migration, new environment variable, or Cloudflare Worker change is
+required. See the backend [component guide](https://github.com/TSK9SAR/k9sar_backend/blob/main/docs/forum-management.md)
+for endpoint and confirmation details.
+
+- Create/edit category names, descriptions, display order, access roles and default
+  email preferences. Lower display-order numbers appear first. Personal email
+  preferences continue to override the category default.
+- Hiding a category retains all its data but prevents normal forum access and
+  inbound email replies. The management page includes hidden categories and their
+  topics, so administrators can restore visibility or move topics out.
+- Delete only an empty category, after a server preview and typed confirmation.
+  A category containing topics must first be emptied by moving its topics, or can
+  simply be hidden. This operation never deletes a topic tree.
+- Moving changes only the topic's category association (and its update timestamp).
+  Topic/post IDs, links, read state, polls, votes, feedback and files stay intact;
+  pin/lock state is preserved. The preview shows both categories' access rules.
+  Members can gain or lose access to the entire discussion after a move.
+
+All management endpoints require the administrator role in the backend. Writes
+and delete/move previews additionally require an MFA-verified access token.
+Confirmation tokens expire after five minutes and are bound to the administrator,
+action and reviewed state. Changed permissions/category state invalidate a
+preview. Category edits use a revision check to prevent overwriting another
+administrator's changes. On a conflict, reload/review before trying again.
+
+Category changes and moves do not themselves send email. Pending notification
+tasks resolve the topic's current category when they run; hidden categories send
+no notifications. Subsequent emails use the destination's access rules/preferences.
+Existing inbound reply addresses remain bound to the topic and re-check current
+category access. Existing no-reply and catch-all forwarding remain unchanged.
 
 ## Backups and recovery
 

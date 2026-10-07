@@ -1019,6 +1019,12 @@ export default function ForumTopicPage() {
                 )}
 
                 {isAdmin && (
+                  <Link to={`/admin/forums?topic=${topic.topic_id}`} className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">
+                    Move Topic
+                  </Link>
+                )}
+
+                {isAdmin && (
                   <button
                     type="button"
                     onClick={toggleTopicLock}

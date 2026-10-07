@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiJson } from "../../lib/api";
 import PageContainer from "../../components/PageContainer";
 
@@ -221,6 +222,7 @@ export default function AdminForumSurveyPage() {
         <PageContainer maxWidth="full" className="space-y-6 py-6">
             <div className="mx-auto p-4 sm:p-6">
                 <div className="mb-6">
+                    <Link to="/admin/forums" className="mb-3 inline-block text-sm text-emerald-300 hover:underline">← Manage categories and topics</Link>
                     <h1 className="text-2xl font-semibold text-slate-100">
                         Forum Survey Reports
                     </h1>

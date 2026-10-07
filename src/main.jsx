@@ -48,6 +48,7 @@ const ForumSettingsPage = React.lazy(() => import("./pages/ForumSettingsPage.jsx
 const EmailAudiencePage = React.lazy(() => import("./pages/admin/EmailAudiencePage.jsx"))
 const AdminHelpPage = React.lazy(() => import("./pages/admin/AdminHelpPage.jsx"));
 const AdminForumSurveyPage = React.lazy(() => import("./pages/admin/AdminForumSurveyPage.tsx"));
+const AdminForumManagementPage = React.lazy(() => import("./pages/admin/AdminForumManagementPage.jsx"));
 const AdminCleanupAuditPage = React.lazy(() => import("./pages/admin/AdminCleanupAuditPage.tsx"));
 
 function PrivateRoute() {
@@ -117,6 +118,7 @@ function AppRoutes() {
             <Route path="/admin/email-users" element={<EmailAudiencePage />} />
             <Route path="/admin/help" element={<AdminHelpPage />} />
             <Route path="/admin/forum-surveys" element={<AdminForumSurveyPage />} />
+            <Route path="/admin/forums" element={<AdminForumManagementPage />} />
             <Route path="/admin/cleanup-audit" element={<AdminCleanupAuditPage />} />
 
           </Route>
