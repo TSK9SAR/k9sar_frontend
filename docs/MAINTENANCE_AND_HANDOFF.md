@@ -4,9 +4,10 @@
 onboarding and recovery for [tsk9sar.org](https://tsk9sar.org): frontend, backend,
 database, files, hosting, authentication and email. It contains no secret values.
 
-Forum administration source and isolated tests were additionally verified on
-2026-10-07. This feature verification does not update the infrastructure audit
-date above or establish a production deployment.
+Forum category management and topic moves were deployed on 2026-10-07 at
+23:05 UTC. See the release record below for source revisions, verification and
+rollback references. This release verification does not replace the broader
+infrastructure audit dated above.
 
 The canonical editable copy is `docs/MAINTENANCE_AND_HANDOFF.md` in the
 [frontend repository](https://github.com/TSK9SAR/k9sar_frontend). A standalone copy
@@ -295,9 +296,42 @@ lint findings separately from regressions. No checked-in CI workflow was found.
 
 ## Deployment and rollback
 
-These are operator procedures, **not deployments performed by this documentation
-update**. Verify current topology, disk space, usable backups and the change
-window. Record revisions, config/schema changes, checks and rollback references.
+Verify current topology, disk space, usable backups and the change window.
+Record revisions, config/schema changes, checks and rollback references.
+
+### Verified release: 2026-10-07 forum administration
+
+Deployed by Codex at the owner's request; both feature branches were fast-forwarded
+and pushed to `main`. No database migration, environment change, stored-file change
+or Cloudflare Worker/forwarding change was made.
+
+| Item | Recorded value |
+| --- | --- |
+| Frontend application source / build ID | `290fd18c0938` |
+| Frontend release | `290fd18c0938-20261007-155844` |
+| Backend source | `9f14da116a2c21e0a61192eb6ee4df9d8a8d24bb` |
+| Backend image | `k9sar_backend:forum-9f14da116a2c`; `sha256:27f340927654e3974f7040f49dffc2a11a04ff73832a9939fc986be3e67d21e4` |
+| Previous backend container | `k9sar_api_before_20261007-230530` (stopped, retained for rollback) |
+| Previous frontend | `/home/ubuntu/k9sar_frontend_backups/k9sar_frontend_290fd18c0938-20261007-155844` |
+| Fresh database backup | `/var/backups/k9sar-mysql/k9sar_2026-10-07_22-57-51_utc.sql.gz`; gzip verified; matching 122,721,916-byte object verified in the configured S3 destination |
+
+Release checks: fresh `npm ci` and production build with `/api`; 27 isolated forum
+tests in the newly built backend image; database-disabled full application import,
+OpenAPI and password hashing checks; live local JSON health; public HTTPS `/admin/forums`
+and OpenAPI; exact public JavaScript/CSS and management chunk comparisons; build ID;
+anonymous management requests rejected with 401. Environment values, all three
+mounts, port bindings, network and restart policy match the previous container.
+Production category/topic content was not modified for testing; authenticated
+write workflows were exercised with isolated fixtures before deployment.
+
+The origin certificate at `/etc/letsencrypt/live/sark9s.org/fullchain.pem` expired
+on **2026-07-15**. Direct origin TLS validation fails; public Cloudflare HTTPS
+validation passes. The first deployment attempt rolled back automatically on that
+origin check, then deployment succeeded using the public HTTPS verification path.
+Certificate renewal/hostname coverage needs a separate repair; no TLS settings
+were weakened or changed during this release. Cloudflare can inject analytics into
+HTML depending on the client, so compare asset references and artifact contents
+rather than requiring byte-identical public HTML.
 
 ### Frontend
 
@@ -336,27 +370,32 @@ test ! -e "$stage"
 test ! -e "$backup"
 mkdir -p "$stage" "$backup"
 tar -xzf "$HOME/k9sar_frontend-$release_id.tgz" -C "$stage"
+chmod -R a+rX "$stage"
 test -f "$stage/index.html"
 sudo rsync -a /var/www/k9sar_frontend/ "$backup/"
+sudo test -f "$backup/index.html"
 sudo nginx -t
-sudo rsync -a --delete "$stage/" /var/www/k9sar_frontend/
+sudo rsync -a --exclude=index.html "$stage/" /var/www/k9sar_frontend/
 sudo chown -R www-data:www-data /var/www/k9sar_frontend
+sudo install -o www-data -g www-data -m 644 "$stage/index.html" /var/www/k9sar_frontend/.index.release
+sudo mv /var/www/k9sar_frontend/.index.release /var/www/k9sar_frontend/index.html
 sudo systemctl reload nginx
 printf 'Previous frontend saved at %s\n' "$backup"
 ```
 
-Test a browser deep-link refresh and the release ID. Open tabs may request old
-hashed chunks removed by promotion; watch asset 404s. A future atomic release/
-asset-retention strategy would improve this. The current repo redeploy script's
-backup block is commented out despite its success message; take the explicit
-backup above.
+Test a browser deep-link refresh and the release ID. This procedure retains old
+hashed assets for already-open tabs and publishes `index.html` last; schedule
+reviewed cleanup of obsolete assets after acceptance. The current repo redeploy
+script's backup block is commented out despite its success message; take the
+explicit backup above. Backup contents retain production ownership, so use `sudo`
+for their checks and restoration.
 
 Frontend rollback, using the actual saved directory:
 
 ```bash
 set -euo pipefail
 backup="$HOME/k9sar_frontend_backups/REPLACE_WITH_ACTUAL_BACKUP_DIRECTORY"
-test -f "$backup/index.html"
+sudo test -f "$backup/index.html"
 sudo nginx -t
 sudo rsync -a --delete "$backup/" /var/www/k9sar_frontend/
 sudo chown -R www-data:www-data /var/www/k9sar_frontend
@@ -380,7 +419,7 @@ image="k9sar_backend:${revision:0:12}-$stamp"
 previous="k9sar_api_before_$stamp"
 test -f backend.env
 git archive "$revision" | docker build --label "org.opencontainers.image.revision=$revision" -t "$image" -
-docker run --rm --network none --entrypoint python "$image" -m unittest discover -s tests -p 'test_forum_email*.py' -v
+docker run --rm --network none --entrypoint python "$image" -m unittest discover -s tests -p 'test_forum*.py' -v
 docker stop k9sar_api
 docker rename k9sar_api "$previous"
 docker run -d --name k9sar_api --restart unless-stopped \
@@ -465,7 +504,7 @@ version before each release.
 
 ### Forum category management and topic moves
 
-The source includes **Administrator → Manage Forums & Surveys**, at
+Administrators use **Administrator → Manage Forums & Surveys**, at
 `/admin/forums`, with a link to the existing survey reports. Administrators also
 have **Move Topic** on a discussion, which opens the management page filtered to
 that topic. Deploy both the backend and frontend changes together (backend first).
@@ -652,6 +691,7 @@ Assign owners/dates before declaring the project fully handed over.
 | High | Misleading repo backup/restore scripts and installed drift | Reconcile executable names, scripts, schedules and tests |
 | High | Secret-bearing Docker context and conflicting redeploy scripts | Reviewed exclusions and one tested build-first deployment preserving all mounts |
 | High | Video signing variable absent; source fallback | Audit actual API/proxy behavior, configure independent key, test access restrictions |
+| High | Origin TLS certificate expired 2026-07-15; observed during 2026-10-07 release, while public Cloudflare HTTPS passes | Renew a certificate covering the active hostname and verify direct origin TLS and automatic renewal; review Cloudflare origin validation |
 | Medium | Backend 8000 published on all interfaces | Confirm Lightsail/host firewall and intended proxy-only access |
 | Medium | Unverified alerts, S3 retention/snapshots | Named recipients, tested failure alerts, retention/encryption/recovery review |
 | Medium | Startup/import `create_all`, no migration workflow | Versioned migrations and tested forward/recovery strategy |
