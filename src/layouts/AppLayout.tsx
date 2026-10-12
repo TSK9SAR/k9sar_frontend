@@ -475,7 +475,7 @@ export default function AppLayout() {
                           </div>
                         </NavLink>
                         <NavLink to="/admin/invites" className={({ isActive }) => linkClass(isActive)}>
-                          New Member Invition
+                          New Member Invitation
                         </NavLink>
 
                       </NavSection>
@@ -486,6 +486,10 @@ export default function AppLayout() {
                     <>
                       <div className="h-px bg-slate-800 my-2" />
                       <NavSection title="Administrator">
+
+                        <NavLink to="/admin/invitations" className={({ isActive }) => linkClass(isActive)}>
+                          Invitation History
+                        </NavLink>
 
                         <NavLink to="/admin/help" className={({ isActive }) => linkClass(isActive)}>
                           Create Help Content
@@ -637,7 +641,7 @@ export default function AppLayout() {
                             </div>
                           </NavLink>
                           <NavLink to="/admin/invites" className={({ isActive }) => linkClass(isActive)}>
-                            New Member Invition
+                            New Member Invitation
                           </NavLink>
 
                         </NavSection>
@@ -648,6 +652,10 @@ export default function AppLayout() {
                       <>
                         <div className="h-px bg-slate-800 my-2" />
                         <NavSection title="Administrator">
+
+                          <NavLink to="/admin/invitations" className={({ isActive }) => linkClass(isActive)}>
+                            Invitation History
+                          </NavLink>
 
                           <NavLink to="/admin/help" className={({ isActive }) => linkClass(isActive)}>
                             Create Help Content

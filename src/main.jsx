@@ -22,6 +22,7 @@ const MyTeamsPage = React.lazy(() => import("./pages/MyTeamsPage.tsx"));
 const DogsPage = React.lazy(() => import("./pages/DogsPage.tsx"));
 const AdminAcceptPage = React.lazy(() => import("./pages/AdminAcceptPage.tsx"));
 const AdminInvitesPage = React.lazy(() => import("./pages/AdminInvitesPage.tsx"));
+const InvitationHistoryPage = React.lazy(() => import("./pages/admin/InvitationHistoryPage.jsx"));
 const ForgotLoginPage = React.lazy(() => import("./pages/ForgotLoginPage.tsx"));
 const ResetLoginPage = React.lazy(() => import("./pages/ResetLoginPage.tsx"));
 const AdminUsersPage = React.lazy(() => import("./pages/admin/AdminUserPage.tsx"));
@@ -104,6 +105,7 @@ function AppRoutes() {
             <Route path="/forums/settings" element={<ForumSettingsPage />} />
 
             <Route path="/admin/invites" element={<AdminInvitesPage />} />
+            <Route path="/admin/invitations" element={<InvitationHistoryPage />} />
             <Route path="/admin/user" element={<AdminUsersPage />} />
             <Route path="/admin/member" element={<AdminMemberPage />} />
             <Route path="/admin/handlers/:handlerId" element={<AdminHandlerPage />} />

@@ -35,6 +35,8 @@ adding or changing a client call.
 | GET | `/users/info` | Auth | Dashboard user information. |
 | POST | `/auth/invite/verify` | Public/token | Validate an invitation token. |
 | POST | `/auth/invite/accept` | Public/token | Accept an invitation and set credentials. |
+| POST | `/admin/invites` | Supervisor/Admin | Issue an invitation using the existing creation flow. |
+| GET | `/admin/invites?status=all&q=&page=1&page_size=25` | Administrator | Read invitation history. Status: `all`, `pending`, `completed`, `expired`; search recipient name/email. Returns items, filtered total, counts for the current search, and server evaluation time. No tokens or invitation links. |
 | POST | `/auth/forgot` | Public | Begin password-reset flow. |
 | POST | `/api/auth/reset/verify` | Public | Validate a password-reset token. |
 | POST | `/api/auth/reset/accept` | Public | Complete a password reset. |

@@ -122,6 +122,7 @@ does not grant access to hosting, secrets, the database or member administration
 | Entry / routing | `index.html`, `src/main.jsx`, `src/layouts/AppLayout*` | `app/main.py`; registrations establish actual route prefixes |
 | API / persistence | `src/lib/api.ts`, `src/utils/apiBase.ts` | `app/routes/`, `app/schemas/`, `app/models/`, `app/database.py` |
 | Authentication | Auth/MFA components and route guards | `auth_routes.py`, `twofa_routes.py`, `webauthn_routes.py`, `oauth_routes.py`, `app/security/` |
+| Invitation history | `admin/InvitationHistoryPage.jsx`, `/admin/invitations` | `admin_invites.py`, `invite_schema.py`, `UserInvite` |
 | Members / handlers / dogs / teams | Corresponding `src/pages/` and `src/pages/admin/` modules | Corresponding route/model modules; user accounts and handler/member/team records are distinct |
 | Standards / certifications / ID cards | Matrix, standards, certificate pages and card components | `standard_routes.py`, `certification_routes.py`, `id_cards.py`, public verification routes |
 | Forums / surveys | `Forum*Page.jsx`, `components/forums/`, `AdminForumManagementPage.jsx`, admin survey page | `forum.py`, `admin_forum_management.py`, `admin_forum_surveys.py`, forum models/services |
@@ -260,6 +261,7 @@ Run backend forum tests in an isolated copy with its dependencies:
 ```bash
 python -m unittest discover -s tests -p 'test_forum_email*.py' -v
 python -m unittest discover -s tests -p 'test_forum_management.py' -v
+python -m unittest discover -s tests -p 'test_invitation_history.py' -v
 ```
 
 These tests inject SQLite before production database imports and mock notification
@@ -501,6 +503,36 @@ recreate the backend with existing mounts. This rejects replies from old emails
 too. Preserve normal forwarding. For Worker regressions, redeploy a reviewed prior
 source/version and check shared-secret compatibility. Record the previous Worker
 version before each release.
+
+### Invitation history
+
+**Administrator → Invitation History** (`/admin/invitations`) lists the existing
+`user_invites` records with recipient, issuer, issue/expiry/acceptance times and
+remaining validity. Use the status buttons for All, Pending, Completed or Expired;
+search recipient name/email to narrow results. Results are newest first with
+25 records per page. The visible page refreshes every minute and when returning
+to the tab; timestamps use the viewer's local timezone, while status/remaining
+validity use the backend clock.
+
+`GET /api/admin/invites` requires administrator authorization. It returns only
+display fields and uses `Cache-Control: no-store`; tokens, hashes, invitation links,
+passwords and phone numbers are excluded. The existing supervisor/admin invitation
+creation flow remains at `POST /api/admin/invites` and `/admin/invites` in the UI.
+
+Completed means `used_at` is populated, regardless of the original expiry date.
+Expired means unused with `expires_at` before the server time; Pending means
+unused and still valid. The expiry boundary matches existing verification and
+acceptance behavior. Each issuance remains a separate row, even for a repeated
+email address. The page reflects retained database records, not an immutable audit
+log. Issuance/acceptance status does not establish email delivery or whether the
+recipient opened a message; those events are not recorded by the invitation model.
+No schema migration or email/configuration change is needed.
+
+On 2026-10-12, 10 isolated HTTP/ORM tests passed for authorization, status/expiry,
+UTC timestamps, search, counts, pagination, missing issuer metadata, secret
+exclusion and unchanged invitation records. Desktop and 390px phone browser tests
+used synthetic data to verify filters, automatic refresh, paging and empty/error
+states. Frontend build passed; lint remains at 16 existing errors and 5 warnings.
 
 ### Forum category management and topic moves
 
