@@ -9,9 +9,8 @@ Forum category management and topic moves were deployed on 2026-10-07 at
 rollback references. This release verification does not replace the broader
 infrastructure audit dated above.
 
-Invitation History is implemented and published to both repositories as of
-2026-10-12, but its prepared release awaits deployment authorization. Production
-still runs the verified 2026-10-07 release.
+Invitation History was deployed on 2026-10-12 at 18:23 UTC. The release record
+below includes source revisions, live verification and rollback references.
 
 The canonical editable copy is `docs/MAINTENANCE_AND_HANDOFF.md` in the
 [frontend repository](https://github.com/TSK9SAR/k9sar_frontend). A standalone copy
@@ -288,7 +287,7 @@ Install test dependencies in the test workspace, not the live backend container.
 | Frontend build | Fresh `npm ci` and production build with `/api` passed 2026-10-12 |
 | Frontend lint | 16 existing errors, 5 warnings; JS/JSX only, no full TypeScript lint/typecheck or frontend test script |
 | Backend forum tests | 16 email tests and 11 administration tests passed in isolated, network-disabled containers on 2026-10-07 |
-| Invitation history release | All 37 backend tests (including 10 invitation tests) and database-disabled application/OpenAPI/password-hashing preflight passed in the prepared image on 2026-10-12; synthetic desktop/phone UI checks passed |
+| Invitation history release | All 37 backend tests (including 10 invitation tests) and database-disabled application/OpenAPI/password-hashing preflight passed in the deployed image on 2026-10-12; synthetic desktop/phone UI and live release checks passed |
 | Forum administration UI | Desktop and 390px mobile browser checks with synthetic API data: create/edit/hide, move and stale-preview retry, delete, hidden topics, authorization errors; no live member data modified |
 | Worker tests | 7 Node tests and 1 workerd test passed during that verification |
 | Real email reply | Owner confirmed successful end-to-end posting before the backend commit |
@@ -306,26 +305,34 @@ lint findings separately from regressions. No checked-in CI workflow was found.
 Verify current topology, disk space, usable backups and the change window.
 Record revisions, config/schema changes, checks and rollback references.
 
-### Prepared release: 2026-10-12 invitation history (not deployed)
+### Verified release: 2026-10-12 invitation history
 
-Frontend and backend feature branches were fast-forwarded and pushed to `main`.
-The server checkout is therefore ahead of the running container. Deployment has
-not run; the existing container remains healthy on the 2026-10-07 image.
+Deployed at the owner's request on 2026-10-12 at 18:23:11 UTC. Frontend and backend
+feature branches were fast-forwarded and pushed to `main`. No database migration,
+environment change, stored-file change or Cloudflare Worker/forwarding change was
+made.
 
-| Item | Prepared value |
+| Item | Recorded value |
 | --- | --- |
 | Frontend application source / build ID | `4567ba3b5375` |
+| Frontend release | `4567ba3b5375-20261012-100851` |
 | Uploaded frontend archive | `/home/ubuntu/k9sar_frontend-4567ba3b5375-20261012-100851.tgz` |
 | Archive SHA-256 | `0ac6ac3381952de147e74e7dd3e0f39b41c431ebc30c6a7eb77af6fa84812949` |
 | Backend source | `140d1332c33466b0d4d9b32980da53f157ff2370` |
-| Prepared backend image | `k9sar_backend:invitations-140d1332c334`; `sha256:ad92454a8d1462f106bc067c9a183d029dd82285f02e8ee51abd725b497f57b5` |
-| Fresh database backup | `/var/backups/k9sar-mysql/k9sar_2026-10-12_17-07-54_utc.sql.gz`; gzip verified; matching 122,725,870-byte object verified in S3 |
+| Backend image | `k9sar_backend:invitations-140d1332c334`; `sha256:ad92454a8d1462f106bc067c9a183d029dd82285f02e8ee51abd725b497f57b5`; also tagged `k9sar_backend:latest` |
+| Previous backend container | `k9sar_api_before_20261012-182225` (stopped, retained for rollback) |
+| Previous frontend | `/home/ubuntu/k9sar_frontend_backups/k9sar_frontend_4567ba3b5375-20261012-100851` |
+| Fresh database backup | `/var/backups/k9sar-mysql/k9sar_2026-10-12_18-21-57_utc.sql.gz`; gzip verified; matching 122,726,048-byte object verified in S3 |
 
-No migration or environment change is required. Deploy the backend first and retain
-its existing environment, three mounts, ports, network and restart policy. Then
-publish the frontend and verify the new page chunk, build ID, both GET and POST
-`/api/admin/invites`, and rejection of anonymous GET requests. Update this record
-with deployment time and actual rollback references after successful promotion.
+Release checks: fresh `npm ci` and production build with `/api`; all 37 isolated
+backend tests; database-disabled application import/OpenAPI/password hashing;
+desktop and 390px mobile UI checks with synthetic data; local JSON health; public
+HTTPS `/admin/invitations`; exact public JavaScript/CSS and invitation page chunk
+comparisons; frontend build ID; OpenAPI includes both GET and POST
+`/api/admin/invites`; anonymous invitation-history and forum-management requests
+rejected with 401. Existing forum routes remain present. Runtime environment,
+all three mounts, port bindings, network and restart policy match the previous
+container. No live invitation records were modified or test emails sent.
 
 ### Verified release: 2026-10-07 forum administration
 
@@ -532,7 +539,7 @@ version before each release.
 
 ### Invitation history
 
-This feature is prepared in `main` and awaits production deployment.
+Deployed on 2026-10-12; see the verified release record above.
 
 **Administrator → Invitation History** (`/admin/invitations`) lists the existing
 `user_invites` records with recipient, issuer, issue/expiry/acceptance times and
