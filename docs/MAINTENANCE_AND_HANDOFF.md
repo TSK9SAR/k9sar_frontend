@@ -12,6 +12,9 @@ infrastructure audit dated above.
 Invitation History was deployed on 2026-10-12 at 18:23 UTC. The release record
 below includes source revisions, live verification and rollback references.
 
+Administrator topic deletion was deployed on 2026-10-23 at 17:08 UTC. The current
+release adds preview and typed confirmation for permanent discussion deletion.
+
 The canonical editable copy is `docs/MAINTENANCE_AND_HANDOFF.md` in the
 [frontend repository](https://github.com/TSK9SAR/k9sar_frontend). A standalone copy
 is supplied at `C:\dev\K9SAR_Maintenance_and_Handoff.md`; refresh it after editing
@@ -306,6 +309,35 @@ lint findings separately from regressions. No checked-in CI workflow was found.
 Verify current topology, disk space, usable backups and the change window.
 Record revisions, config/schema changes, checks and rollback references.
 
+### Verified release: 2026-10-23 topic deletion
+
+Deployed with the owner's approval at 17:08:26 UTC. Both feature branches were
+fast-forwarded and pushed to `main`. No database migration, configuration change,
+Cloudflare Worker update or forwarding change was required.
+
+| Item | Recorded value |
+| --- | --- |
+| Frontend application source / build ID | `3daba20baa82` |
+| Frontend release | `3daba20baa82-20261023-100437` |
+| Frontend archive SHA-256 | `b89a7adc22113f415acc22876b8acdfd4b479a1f36ccdc9ed0f193fea790752c` |
+| Backend application source | `207a55fdad2eab45a45cc96c765857f894f1d002` |
+| Backend image | `k9sar_backend:topic-delete-207a55fdad2e`; `sha256:e90988d9058367b36f7a41b70d75d85d6e31976fdae66ad8cb859d8ce843d2bc`; also tagged `k9sar_backend:latest` |
+| Previous backend container | `k9sar_api_before_20261023-170745` (stopped, retained for rollback) |
+| Previous frontend | `/home/ubuntu/k9sar_frontend_backups/k9sar_frontend_3daba20baa82-20261023-100437` |
+| Fresh database backup | `/var/backups/k9sar-mysql/k9sar_2026-10-23_17-07-06_utc.sql.gz`; gzip verified; matching 124,892,965-byte object verified in S3 |
+
+Release checks: fresh `npm ci` and production build with `/api`; all 46 backend
+tests in the release image with networking disabled; database-disabled full-app
+import/OpenAPI/password hashing preflight; desktop and 390px mobile browser checks
+with synthetic data; local JSON health; public HTTPS and exact JavaScript/CSS,
+management/discussion chunks and build ID; both deletion POST routes present in
+OpenAPI and rejecting unauthenticated requests with 401. Existing invitation,
+forum management and inbound-email routes remain present. Runtime environment,
+all three mounts, ports, network and restart policy match the previous container.
+No production discussion was deleted and no test email was sent. Application source
+IDs above exclude later documentation-only commits. Code rollback does not undo
+topic deletions that an administrator subsequently confirms.
+
 ### Verified release: 2026-10-12 invitation history
 
 Deployed at the owner's request on 2026-10-12 at 18:23:11 UTC. Frontend and backend
@@ -594,7 +626,7 @@ for endpoint and confirmation details.
   pin/lock state is preserved. The preview shows both categories' access rules.
   Members can gain or lose access to the entire discussion after a move.
 
-**Topic deletion prepared on 2026-10-23; production deployment pending.** The
+**Topic deletion deployed on 2026-10-23.** The
 updated management page offers **Delete topic**, and the discussion link is
 renamed **Manage Topic**. Choose **Review deletion**, verify the title, category,
 post/poll/vote/feedback/attachment counts, and type `DELETE TOPIC {id}` exactly.
@@ -614,8 +646,8 @@ transaction. Unreferenced stored-file records are deleted; files referenced by
 other posts or email campaigns are retained. Physical files are removed only after
 commit. If physical cleanup fails, the API reports `file_cleanup_pending` and the
 UI says the topic was deleted with cleanup outstanding. The backend warning records
-the stored-file ID; use the pre-deployment DB backup's `stored_files` metadata to
-resolve the orphaned path for a reviewed cleanup, without dumping member data.
+the stored-file ID. Use recent backup metadata where available, or review orphan
+files against live `stored_files` references before cleanup, without dumping member data.
 Foreign-key failures roll back the database deletions and remove no physical files.
 
 Inbound email receipts are retained to prevent replay. Old topic links and reply
