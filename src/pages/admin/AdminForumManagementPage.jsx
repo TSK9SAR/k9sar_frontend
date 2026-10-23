@@ -164,6 +164,55 @@ function MoveTopic({ topic, categories, onClose, onSaved }) {
     </ManagementDialog>;
 }
 
+function DeleteTopic({ topic, onClose, onSaved }) {
+    const [preview, setPreview] = useState(null);
+    const [confirmText, setConfirmText] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+
+    async function review() {
+        setBusy(true); setError(""); setPreview(null); setConfirmText("");
+        try {
+            setPreview(await apiJson(`/admin/forum/topics/${topic.topic_id}/delete-preview`, { method: "POST" }));
+        } catch (err) { setError(errorMessage(err)); }
+        finally { setBusy(false); }
+    }
+
+    async function remove() {
+        setBusy(true); setError("");
+        try {
+            const result = await apiJson(`/admin/forum/topics/${topic.topic_id}/delete-confirm`, {
+                method: "POST", body: JSON.stringify({ confirmation_token: preview.confirmation_token, confirm_text: confirmText }),
+            });
+            onSaved(`Topic deleted.${result.file_cleanup_pending ? " Some attachment files need administrator cleanup; the discussion has been deleted." : ""}`);
+        } catch (err) { setError(errorMessage(err)); setPreview(null); setConfirmText(""); }
+        finally { setBusy(false); }
+    }
+
+    return <ManagementDialog title="Delete topic" busy={busy} onClose={onClose}>
+        <ErrorNotice message={error} />
+        <p className="break-words font-semibold">{preview?.title || topic.title}</p>
+        <p className="text-sm text-slate-400">Category: {preview?.category.name || topic.category_name}</p>
+        {preview ? <>
+            <div className="space-y-2 rounded-lg border border-red-700 bg-red-950/40 p-3 text-sm text-red-100">
+                <p>This permanently deletes the entire discussion. It cannot be undone.</p>
+                <p>{preview.post_count} posts (including previously removed posts), {preview.poll_count} polls, {preview.vote_count} votes, {preview.feedback_count} feedback entries, and {preview.attachment_count} attachment links will be removed.</p>
+                <p>Files used only by this discussion are deleted. Files shared with other discussions or email campaigns are kept.</p>
+            </div>
+            <p className="text-sm text-slate-300">Existing topic links and email reply addresses will stop working. Deleting sends no notification.</p>
+            <label className="block text-sm">Type <strong>{preview.confirm_text}</strong> to confirm.
+                <input className={fieldClass} autoComplete="off" spellCheck={false} value={confirmText} onChange={event => setConfirmText(event.target.value)} />
+            </label>
+        </> : <p className="text-sm text-slate-300">Review the discussion’s contents before confirming permanent deletion. To keep the discussion and stop replies, lock it from the topic page.</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+            <button className={buttonClass} disabled={busy} onClick={onClose}>Cancel</button>
+            {preview ? <button className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={busy || confirmText !== preview.confirm_text} onClick={remove}>{busy ? "Deleting…" : "Permanently delete topic"}</button>
+                : <button className={buttonClass} disabled={busy} onClick={review}>{busy ? "Checking discussion…" : "Review deletion"}</button>}
+        </div>
+    </ManagementDialog>;
+}
+
 export default function AdminForumManagementPage() {
     const [searchParams] = useSearchParams();
     const [categories, setCategories] = useState([]);
@@ -204,7 +253,7 @@ export default function AdminForumManagementPage() {
     return <PageContainer>
         <div className="space-y-7 py-6 text-slate-100">
             <header className="flex flex-wrap items-start justify-between gap-4">
-                <div><h1 className="text-2xl font-semibold">Manage Forums &amp; Surveys</h1><p className="mt-2 text-sm text-slate-400">Organize categories and move discussions. Changes require an administrator with two-factor verification.</p></div>
+                <div><h1 className="text-2xl font-semibold">Manage Forums &amp; Surveys</h1><p className="mt-2 text-sm text-slate-400">Organize categories, move discussions, and delete topics. Changes require an administrator with two-factor verification.</p></div>
                 <div className="flex flex-wrap gap-2"><Link className={buttonClass} to="/forums">View forums</Link><Link className={buttonClass} to="/admin/forum-surveys">Survey reports</Link></div>
             </header>
             <ErrorNotice message={error} />
@@ -231,7 +280,7 @@ export default function AdminForumManagementPage() {
                     </div>
                 </section>
                 <section aria-labelledby="topics-title" className="space-y-4">
-                    <h2 id="topics-title" className="text-xl font-semibold">Move topics</h2>
+                    <h2 id="topics-title" className="text-xl font-semibold">Manage topics</h2>
                     <p className="text-sm text-slate-400">Find discussions in any category, including hidden categories.</p>
                     <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setQuery({ q: search, category_id: categoryFilter, topic_id: "", offset: 0 }); }}>
                         <label className="min-w-48 flex-1 text-sm">Topic title<input className={fieldClass} maxLength={200} value={search} onChange={event => setSearch(event.target.value)} /></label>
@@ -241,9 +290,12 @@ export default function AdminForumManagementPage() {
                     </form>
                     {query.topic_id && <p className="text-sm text-slate-400">Showing topic #{query.topic_id}. Clear filters to see all topics.</p>}
                     <div className="divide-y divide-slate-700 rounded-xl border border-slate-700">
-                        {topics.items.map(topic => <div key={topic.topic_id} className="flex items-center justify-between gap-4 p-4">
+                        {topics.items.map(topic => <div key={topic.topic_id} className="flex flex-wrap items-center justify-between gap-4 p-4">
                             <div className="min-w-0"><p className="break-words font-medium">{topic.category_active ? <Link className="text-emerald-300 hover:underline" to={`/forums/topics/${topic.topic_id}`}>{topic.title}</Link> : topic.title}</p><p className="mt-1 text-sm text-slate-400">{topic.category_name}{!topic.category_active && " (hidden)"} · #{topic.topic_id}{topic.is_locked && " · Locked"}{topic.is_pinned && " · Pinned"}</p></div>
-                            <button className={buttonClass} disabled={loading} aria-label={`Move ${topic.title}`} onClick={() => setDialog({ type: "move", topic })}>Move</button>
+                            <div className="flex shrink-0 gap-2">
+                                <button className={buttonClass} disabled={loading} aria-label={`Move ${topic.title}`} onClick={() => setDialog({ type: "move", topic })}>Move</button>
+                                <button className="rounded-lg border border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200 hover:bg-red-900 disabled:opacity-40" disabled={loading} aria-label={`Delete topic ${topic.title}`} onClick={() => setDialog({ type: "delete-topic", topic })}>Delete topic</button>
+                            </div>
                         </div>)}
                         {!topics.items.length && <p className="p-4 text-slate-400">No matching topics.</p>}
                     </div>
@@ -254,5 +306,6 @@ export default function AdminForumManagementPage() {
         {dialog?.type === "edit" && <CategoryEditor category={dialog.category} {...dialogProps} />}
         {dialog?.type === "delete" && <DeleteCategory category={dialog.category} {...dialogProps} />}
         {dialog?.type === "move" && <MoveTopic topic={dialog.topic} categories={categories} {...dialogProps} />}
+        {dialog?.type === "delete-topic" && <DeleteTopic topic={dialog.topic} {...dialogProps} />}
     </PageContainer>;
 }

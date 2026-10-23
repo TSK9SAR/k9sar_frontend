@@ -147,6 +147,8 @@ adding or changing a client call.
 | GET | `/admin/forum/topics?q=&category_id=&topic_id=&offset=0&limit=25` | Administrator | Search all topics, including hidden categories; filters optional. |
 | POST | `/admin/forum/topics/{topicId}/move-preview` | Administrator + MFA | Preview a move with `destination_category_id`; returns access rules, counts and confirmation token. |
 | POST | `/admin/forum/topics/{topicId}/move-confirm` | Administrator + MFA | Move using `destination_category_id` and `confirmation_token`; retain all discussion content and IDs. |
+| POST | `/admin/forum/topics/{topicId}/delete-preview` | Administrator + MFA | Review permanent topic deletion; returns title, category, content counts, confirmation text and token. |
+| POST | `/admin/forum/topics/{topicId}/delete-confirm` | Administrator + MFA | Delete the reviewed discussion using the token and exact `DELETE TOPIC {id}` text; preserve shared files and inbound email receipts. |
 
 Delete/move confirmations expire in five minutes and are bound to the administrator
 and reviewed state. Stale edits/previews return 409; refresh and review again.

@@ -264,6 +264,7 @@ Run backend forum tests in an isolated copy with its dependencies:
 ```bash
 python -m unittest discover -s tests -p 'test_forum_email*.py' -v
 python -m unittest discover -s tests -p 'test_forum_management.py' -v
+python -m unittest discover -s tests -p 'test_forum_topic_deletion.py' -v
 python -m unittest discover -s tests -p 'test_invitation_history.py' -v
 ```
 
@@ -569,12 +570,12 @@ exclusion and unchanged invitation records. Desktop and 390px phone browser test
 used synthetic data to verify filters, automatic refresh, paging and empty/error
 states. Frontend build passed; lint remains at 16 existing errors and 5 warnings.
 
-### Forum category management and topic moves
+### Forum category and topic management
 
 Administrators use **Administrator → Manage Forums & Surveys**, at
 `/admin/forums`, with a link to the existing survey reports. Administrators also
-have **Move Topic** on a discussion, which opens the management page filtered to
-that topic. Deploy both the backend and frontend changes together (backend first).
+have a topic management link on a discussion, which opens the management page
+filtered to that topic. Deploy both the backend and frontend changes together (backend first).
 No database migration, new environment variable, or Cloudflare Worker change is
 required. See the backend [component guide](https://github.com/TSK9SAR/k9sar_backend/blob/main/docs/forum-management.md)
 for endpoint and confirmation details.
@@ -592,6 +593,43 @@ for endpoint and confirmation details.
   Topic/post IDs, links, read state, polls, votes, feedback and files stay intact;
   pin/lock state is preserved. The preview shows both categories' access rules.
   Members can gain or lose access to the entire discussion after a move.
+
+**Topic deletion prepared on 2026-10-23; production deployment pending.** The
+updated management page offers **Delete topic**, and the discussion link is
+renamed **Manage Topic**. Choose **Review deletion**, verify the title, category,
+post/poll/vote/feedback/attachment counts, and type `DELETE TOPIC {id}` exactly.
+Only then can **Permanently delete topic** be selected. Cancellation changes
+nothing. Administrators can also delete locked topics and topics in hidden categories.
+
+The backend adds POST `/api/admin/forum/topics/{id}/delete-preview` and
+`delete-confirm`, both requiring administrator and MFA authorization. Confirmation
+is bound to the actor and reviewed content, expires after five minutes, and is
+rejected after edits, new replies/votes, category changes or topic moves. Read-marker
+updates alone do not invalidate the review. A stale confirmation requires a new
+review and retyping the confirmation.
+
+Deletion permanently removes the topic, all posts (including soft-deleted posts),
+polls, choices, votes, feedback, read markers and attachment links in one database
+transaction. Unreferenced stored-file records are deleted; files referenced by
+other posts or email campaigns are retained. Physical files are removed only after
+commit. If physical cleanup fails, the API reports `file_cleanup_pending` and the
+UI says the topic was deleted with cleanup outstanding. The backend warning records
+the stored-file ID; use the pre-deployment DB backup's `stored_files` metadata to
+resolve the orphaned path for a reviewed cleanup, without dumping member data.
+Foreign-key failures roll back the database deletions and remove no physical files.
+
+Inbound email receipts are retained to prevent replay. Old topic links and reply
+addresses stop working, and queued notifications skip a deleted topic. Deletion
+sends no email. Code rollback does not restore deleted discussions or files;
+recovery requires appropriate database and file backups.
+
+Verification on 2026-10-23: all 46 isolated backend tests passed, including nine
+topic-deletion tests and authorization checks for both new endpoints. Deletion
+tests enable SQLite foreign keys and mock physical files/email. Desktop and 390px
+mobile browser checks passed for cancellation, preview errors/retry, typed
+confirmation, stale review, refreshed counts, empty state and authorization errors.
+Production build passed; lint remains at 16 existing errors and 5 warnings. No
+production topic was deleted for testing. No schema/environment/Worker change is needed.
 
 All management endpoints require the administrator role in the backend. Writes
 and delete/move previews additionally require an MFA-verified access token.
